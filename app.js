@@ -3,19 +3,24 @@
 // ==========================================
 const API_URL = "https://script.google.com/macros/s/AKfycbyKUqD4vfQ1nRVLvxU_CXvKx2mtu-pWaPz43D1aYSea7QE3CwjS_BIJK2yRTWduukoM/exec"; 
 
-// Global State
-let masterData = { prices: [], customers: [], payables: [] };
+let masterPrices = [];
 let cart = [];
 let cartTotals = { grandTotal: 0, totalModal: 0 };
 
-// 1. Initialize App & Fetch Data
+// 1. Initialize App
 window.onload = async function() {
-  document.getElementById('sysStatus').innerText = "Loading Master Data...";
   try {
-    const response = await fetch(`${API_URL}?action=getAll`);
-    masterData = await response.json();
-    populateDropdowns();
-    populateHutangTable();
+    const response = await fetch(`${API_URL}?action=getMasterData`);
+    const data = await response.json();
+    masterPrices = data.prices;
+    
+    const fabricSelect = document.getElementById('mainFabric');
+    fabricSelect.innerHTML = `<option value="">-- Select Fabric / Service --</option>`;
+    
+    masterPrices.filter(p => p.Category === 'Fabric' || p.Category === 'Service').forEach(p => {
+      fabricSelect.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+    });
+    
     document.getElementById('sysStatus').style.display = 'none';
   } catch (err) {
     document.getElementById('sysStatus').innerText = "Failed to load database. Check API URL.";
@@ -23,87 +28,54 @@ window.onload = async function() {
   }
 };
 
-// 2. Tab Navigation
-function openTab(tabId) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-  document.getElementById(tabId).classList.add('active');
-  event.target.classList.add('active');
+// 2. Formatting Helper
+function formatRupiah(number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
 }
 
-// 3. UI Population
-function populateDropdowns() {
-  const custSelect = document.getElementById('posCustomerSelect');
-  const fabricSelect = document.getElementById('mainFabric');
-  
-  masterData.customers.forEach(c => {
-    custSelect.innerHTML += `<option value="${c.CustomerID}">${c.Name} (${c.Tier})</option>`;
-  });
-  
-  masterData.prices.filter(p => p.Category === 'Fabric').forEach(p => {
-    fabricSelect.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
-  });
-}
-
-function populateHutangTable() {
-  const tbody = document.getElementById('hutangBody');
-  masterData.payables.forEach(p => {
-    tbody.innerHTML += `<tr><td>${new Date(p.Date).toLocaleDateString()}</td><td>${p.SupplierName}</td><td>${p.OrderID}</td><td>Rp ${p.AmountDue.toLocaleString()}</td><td>${p.Status}</td></tr>`;
-  });
-}
-
-// 4. THE SMART BOM CALCULATOR
+// 3. Add to Summary (The BOM Calculator)
 function addBOMToCart() {
-  const custId = document.getElementById('posCustomerSelect').value;
   const fabricCode = document.getElementById('mainFabric').value;
-  if (!custId || !fabricCode) return alert("Select Customer and Fabric!");
+  if (!fabricCode) return alert("Please select a Fabric or Service!");
 
-  const customer = masterData.customers.find(c => c.CustomerID === custId);
-  const tier = customer.Tier; // e.g., 'Price_Reguler'
-  
+  const tier = document.getElementById('custTier').value; 
   const room = document.getElementById('roomName').value || "Unnamed Window";
   let w = Math.max(parseFloat(document.getElementById('width').value) || 1.0, 1.0);
   let h = Math.max(parseFloat(document.getElementById('height').value) || 1.0, 1.0);
+  let ukuranDesc = `L: ${w}m x T: ${h}m`;
   
-  // Basic Fabric Calculation (Width +10cm, Height +25cm, 1.4m roll)
   let fabricQty = Math.ceil((w + 0.10) / 1.4) * (h + 0.25);
-  
-  // Build the BOM Array
   let componentsToAdd = [];
   
-  // 1. Find and add Main Fabric
-  const fabricObj = masterData.prices.find(p => p.ItemCode === fabricCode);
+  // Main Fabric
+  const fabricObj = masterPrices.find(p => p.ItemCode === fabricCode);
   componentsToAdd.push({ obj: fabricObj, qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
   
-  // 2. Add Rel (if checked) - Qty = Width
+  // Accessories
   if (document.getElementById('incRel').checked) {
-    componentsToAdd.push({ obj: masterData.prices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
+    componentsToAdd.push({ obj: masterPrices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
   }
-  
-  // 3. Add Plong (if checked) - Estimate 12 rings per meter of width
   if (document.getElementById('incPlong').checked) {
     let rings = Math.ceil(w * 12);
-    componentsToAdd.push({ obj: masterData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
+    componentsToAdd.push({ obj: masterPrices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
   }
-  
-  // 4. Add Jahit (if checked) - Qty = Fabric Length
   if (document.getElementById('incJahit').checked) {
-    componentsToAdd.push({ obj: masterData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
+    componentsToAdd.push({ obj: masterPrices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
   }
 
-  // Process BOM into Cart
+  // Push to Cart
   componentsToAdd.forEach(comp => {
-    if (!comp.obj) return; // Skip if item is missing from Master Data
-    
-    let sellPrice = comp.obj[tier] || 0; // Gets correct price for Customer's tier
-    let baseCost = comp.obj.BaseCost_Modal || 0;
+    if (!comp.obj) return; 
+    let sellPrice = parseFloat(comp.obj[tier]) || 0; 
+    let baseCost = parseFloat(comp.obj.BaseCost_Modal) || 0;
     
     cart.push({
       room: room,
+      ukuran: ukuranDesc,
       itemCode: comp.obj.ItemCode,
       itemName: comp.obj.ItemName,
       w: w, h: h,
-      qty: comp.desc,
+      qtyDesc: comp.desc,
       baseCostTotal: (baseCost * comp.qty),
       subtotalPrice: (sellPrice * comp.qty),
       supplier: comp.obj.SupplierName
@@ -119,29 +91,41 @@ function updateCartUI() {
   cartTotals.grandTotal = 0;
   cartTotals.totalModal = 0;
 
-  cart.forEach(item => {
+  cart.forEach((item, index) => {
     cartTotals.grandTotal += item.subtotalPrice;
     cartTotals.totalModal += item.baseCostTotal;
     tbody.innerHTML += `<tr>
       <td><b>${item.room}</b><br><small>${item.itemName}</small></td>
-      <td>${item.qty}</td>
-      <td>Rp ${item.subtotalPrice.toLocaleString()}</td>
+      <td>${item.ukuran}</td>
+      <td>${item.qtyDesc}</td>
+      <td>${formatRupiah(item.subtotalPrice)}</td>
+      <td><button onclick="removeItem(${index})" style="background: #e74c3c; padding: 5px; width:auto;">X</button></td>
     </tr>`;
   });
 
-  document.getElementById('displayTotal').innerText = `Rp ${cartTotals.grandTotal.toLocaleString()}`;
-  document.getElementById('displayModal').innerText = `Rp ${cartTotals.totalModal.toLocaleString()}`;
-  document.getElementById('displayProfit').innerText = `Rp ${(cartTotals.grandTotal - cartTotals.totalModal).toLocaleString()}`;
+  document.getElementById('displayTotal').innerText = formatRupiah(cartTotals.grandTotal);
 }
 
-// 5. SAVE DATA TO API
+function removeItem(index) {
+  cart.splice(index, 1);
+  updateCartUI();
+}
+
+// 4. Save Order to Database
 async function saveOrder() {
-  if (cart.length === 0) return alert("Cart is empty!");
+  const custName = document.getElementById('custName').value.trim();
+  const custWA = document.getElementById('custWA').value.trim();
+  
+  if (!custName) return alert("Customer Name is required!");
+  if (cart.length === 0) return alert("Summary is empty!");
+  
   const btn = document.getElementById('btnSave');
   btn.innerText = "Saving to Database..."; btn.disabled = true;
 
   const payload = {
-    customerId: document.getElementById('posCustomerSelect').value,
+    customerName: custName,
+    customerWA: custWA,
+    customerTier: document.getElementById('custTier').value,
     grandTotal: cartTotals.grandTotal,
     totalModal: cartTotals.totalModal,
     amountPaid: document.getElementById('amountPaid').value,
@@ -153,20 +137,52 @@ async function saveOrder() {
     const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveOrder", payload: payload }) });
     const data = await res.json();
     if (data.success) {
-      alert("Order Saved! System generated Purchase Orders for Suppliers.");
-      location.reload(); // Quick reset
+      alert("Order successfully saved!");
+      btn.innerText = "💾 Save Order to Database"; btn.disabled = false;
     }
-  } catch(e) { alert("Error Saving!"); }
+  } catch(e) { 
+    alert("Error Saving!"); 
+    btn.innerText = "💾 Save Order to Database"; btn.disabled = false;
+  }
 }
 
-async function saveCustomer() {
-  const payload = {
-    name: document.getElementById('newCustName').value,
-    phone: document.getElementById('newCustWA').value,
-    tier: document.getElementById('newCustTier').value,
-    address: ""
-  };
-  const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "addCustomer", payload: payload }) });
-  const data = await res.json();
-  if(data.success) { alert("Customer Saved!"); location.reload(); }
+// 5. PDF Generation (Proposal vs Invoice)
+function generateDocument(docType) {
+  const custName = document.getElementById('custName').value || "Customer Name";
+  const custWA = document.getElementById('custWA').value || "-";
+  const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+  
+  // Fill Print Area
+  document.getElementById('printDocType').innerText = docType;
+  document.getElementById('printCustName').innerText = custName;
+  document.getElementById('printCustWA').innerText = custWA;
+  document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID');
+  
+  const printBody = document.getElementById('printTableBody');
+  printBody.innerHTML = "";
+  
+  cart.forEach(item => {
+    printBody.innerHTML += `
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 10px;"><b>${item.room}</b><br><span style="color:#555; font-size: 14px;">${item.itemName}</span></td>
+        <td style="padding: 10px;">${item.qtyDesc}<br><span style="color:#555; font-size: 12px;">(${item.ukuran})</span></td>
+        <td style="padding: 10px; text-align: right;">${formatRupiah(item.subtotalPrice)}</td>
+      </tr>
+    `;
+  });
+
+  document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
+  
+  // Hide DP/Sisa section if it's just a Proposal
+  const paymentSection = document.getElementById('printPaymentSection');
+  if (docType === 'Proposal') {
+    paymentSection.style.display = 'none';
+  } else {
+    paymentSection.style.display = 'block';
+    document.getElementById('printPaid').innerText = formatRupiah(amountPaid);
+    document.getElementById('printSisa').innerText = formatRupiah(cartTotals.grandTotal - amountPaid);
+  }
+
+  // Trigger Browser Print Dialog
+  window.print();
 }
