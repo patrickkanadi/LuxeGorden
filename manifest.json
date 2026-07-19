@@ -1,0 +1,17 @@
+{
+  "name": "Luxe Gorden",
+  "short_name": "LG POS",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#2c3e50",
+  "description": "Point of Sale and Calculator for Luxe Gorden",
+  "icons": [
+    {
+      "src": "1.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
