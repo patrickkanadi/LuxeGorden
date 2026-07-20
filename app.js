@@ -1,95 +1,79 @@
-// ==========================================
-// PASTE YOUR GOOGLE WEB APP URL HERE!
-// ==========================================
+// YOUR SPECIFIC GOOGLE WEB APP URL
 const API_URL = "https://script.google.com/macros/s/AKfycbyKUqD4vfQ1nRVLvxU_CXvKx2mtu-pWaPz43D1aYSea7QE3CwjS_BIJK2yRTWduukoM/exec"; 
 
-let masterPrices = [];
+let globalData = { prices: [], customers: [], orders: [] };
 let cart = [];
 let cartTotals = { grandTotal: 0, totalModal: 0 };
 
-// 1. Initialize App
+// 1. Initialize & Fetch Data
 window.onload = async function() {
   try {
-    const response = await fetch(`${API_URL}?action=getMasterData`);
-    const data = await response.json();
-    masterPrices = data.prices;
+    const response = await fetch(`${API_URL}?action=getAll`);
+    globalData = await response.json();
     
+    // Fill Fabric Dropdown
     const fabricSelect = document.getElementById('mainFabric');
-    fabricSelect.innerHTML = `<option value="">-- Select Fabric / Service --</option>`;
-    
-    masterPrices.filter(p => p.Category === 'Fabric' || p.Category === 'Service').forEach(p => {
+    globalData.prices.filter(p => p.Category === 'Fabric' || p.Category === 'Service').forEach(p => {
       fabricSelect.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+    });
+
+    // Fill CRM Customer Dropdown
+    const crmSelect = document.getElementById('crmCustomerSelect');
+    globalData.customers.forEach(c => {
+      crmSelect.innerHTML += `<option value="${c.CustomerID}">${c.Name} (${c.Phone_WA})</option>`;
     });
     
     document.getElementById('sysStatus').style.display = 'none';
   } catch (err) {
     document.getElementById('sysStatus').innerText = "Failed to load database. Check API URL.";
-    document.getElementById('sysStatus').style.background = "#e74c3c";
   }
 };
 
-// 2. Formatting Helper
+// 2. Tab Navigation
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  event.target.classList.add('active');
+}
+
 function formatRupiah(number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
 }
 
-// 3. Add to Summary (The BOM Calculator)
+// 3. POS: Add to Cart
 function addBOMToCart() {
   const fabricCode = document.getElementById('mainFabric').value;
-  if (!fabricCode) return alert("Please select a Fabric or Service!");
+  if (!fabricCode) return alert("Select Fabric!");
 
   const tier = document.getElementById('custTier').value; 
   const room = document.getElementById('roomName').value || "Unnamed Window";
   let w = Math.max(parseFloat(document.getElementById('width').value) || 1.0, 1.0);
   let h = Math.max(parseFloat(document.getElementById('height').value) || 1.0, 1.0);
-  let ukuranDesc = `L: ${w}m x T: ${h}m`;
   
   let fabricQty = Math.ceil((w + 0.10) / 1.4) * (h + 0.25);
-  let componentsToAdd = [];
+  let comps = [];
   
-  // Main Fabric
-  const fabricObj = masterPrices.find(p => p.ItemCode === fabricCode);
-  componentsToAdd.push({ obj: fabricObj, qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
-  
-  // Accessories
-  if (document.getElementById('incRel').checked) {
-    componentsToAdd.push({ obj: masterPrices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
-  }
-  if (document.getElementById('incPlong').checked) {
-    let rings = Math.ceil(w * 12);
-    componentsToAdd.push({ obj: masterPrices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
-  }
-  if (document.getElementById('incJahit').checked) {
-    componentsToAdd.push({ obj: masterPrices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
-  }
+  comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
+  if (document.getElementById('incRel').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
+  if (document.getElementById('incPlong').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(w * 12), desc: `${Math.ceil(w * 12)} pcs` });
+  if (document.getElementById('incJahit').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
 
-  // Push to Cart
-  componentsToAdd.forEach(comp => {
+  comps.forEach(comp => {
     if (!comp.obj) return; 
-    let sellPrice = parseFloat(comp.obj[tier]) || 0; 
-    let baseCost = parseFloat(comp.obj.BaseCost_Modal) || 0;
-    
     cart.push({
-      room: room,
-      ukuran: ukuranDesc,
-      itemCode: comp.obj.ItemCode,
-      itemName: comp.obj.ItemName,
-      w: w, h: h,
-      qtyDesc: comp.desc,
-      baseCostTotal: (baseCost * comp.qty),
-      subtotalPrice: (sellPrice * comp.qty),
-      supplier: comp.obj.SupplierName
+      room: room, ukuran: `L:${w} x T:${h}`, itemCode: comp.obj.ItemCode, itemName: comp.obj.ItemName,
+      w: w, h: h, qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
+      subtotalPrice: (comp.obj[tier] * comp.qty), supplier: comp.obj.SupplierName
     });
   });
-
   updateCartUI();
 }
 
 function updateCartUI() {
   const tbody = document.getElementById('cartBody');
   tbody.innerHTML = "";
-  cartTotals.grandTotal = 0;
-  cartTotals.totalModal = 0;
+  cartTotals.grandTotal = 0; cartTotals.totalModal = 0;
 
   cart.forEach((item, index) => {
     cartTotals.grandTotal += item.subtotalPrice;
@@ -97,92 +81,110 @@ function updateCartUI() {
     tbody.innerHTML += `<tr>
       <td><b>${item.room}</b><br><small>${item.itemName}</small></td>
       <td>${item.ukuran}</td>
-      <td>${item.qtyDesc}</td>
       <td>${formatRupiah(item.subtotalPrice)}</td>
-      <td><button onclick="removeItem(${index})" style="background: #e74c3c; padding: 5px; width:auto;">X</button></td>
+      <td><button onclick="removeItem(${index})" style="background:#e74c3c; padding:5px;">X</button></td>
     </tr>`;
   });
-
   document.getElementById('displayTotal').innerText = formatRupiah(cartTotals.grandTotal);
 }
 
-function removeItem(index) {
-  cart.splice(index, 1);
-  updateCartUI();
-}
+function removeItem(index) { cart.splice(index, 1); updateCartUI(); }
 
-// 4. Save Order to Database
+// 4. POS: Save Order
 async function saveOrder() {
   const custName = document.getElementById('custName').value.trim();
-  const custWA = document.getElementById('custWA').value.trim();
-  
-  if (!custName) return alert("Customer Name is required!");
-  if (cart.length === 0) return alert("Summary is empty!");
+  if (!custName || cart.length === 0) return alert("Name & Cart are required!");
   
   const btn = document.getElementById('btnSave');
-  btn.innerText = "Saving to Database..."; btn.disabled = true;
+  btn.innerText = "Saving..."; btn.disabled = true;
 
   const payload = {
-    customerName: custName,
-    customerWA: custWA,
-    customerTier: document.getElementById('custTier').value,
-    grandTotal: cartTotals.grandTotal,
-    totalModal: cartTotals.totalModal,
-    amountPaid: document.getElementById('amountPaid').value,
-    status: document.getElementById('orderStatus').value,
-    cartItems: cart
+    customerName: custName, customerWA: document.getElementById('custWA').value,
+    customerAddress: document.getElementById('custAddress').value, customerTier: document.getElementById('custTier').value,
+    grandTotal: cartTotals.grandTotal, totalModal: cartTotals.totalModal,
+    amountPaid: document.getElementById('amountPaid').value, status: document.getElementById('orderStatus').value, cartItems: cart
   };
 
   try {
     const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveOrder", payload: payload }) });
     const data = await res.json();
-    if (data.success) {
-      alert("Order successfully saved!");
-      btn.innerText = "💾 Save Order to Database"; btn.disabled = false;
-    }
-  } catch(e) { 
-    alert("Error Saving!"); 
-    btn.innerText = "💾 Save Order to Database"; btn.disabled = false;
-  }
+    if (data.success) { alert("Saved!"); location.reload(); }
+  } catch(e) { alert("Error!"); btn.innerText = "💾 Save Order"; btn.disabled = false; }
 }
 
-// 5. PDF Generation (Proposal vs Invoice)
-function generateDocument(docType) {
-  const custName = document.getElementById('custName').value || "Customer Name";
-  const custWA = document.getElementById('custWA').value || "-";
-  const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+// 5. CRM: Load Customer & Orders
+function loadCustomerProfile() {
+  const custId = document.getElementById('crmCustomerSelect').value;
+  if (!custId) return document.getElementById('crmProfile').style.display = 'none';
+
+  const customer = globalData.customers.find(c => c.CustomerID === custId);
+  document.getElementById('editCustId').value = customer.CustomerID;
+  document.getElementById('editCustName').value = customer.Name;
+  document.getElementById('editCustWA').value = customer.Phone_WA;
+  document.getElementById('editCustAddress').value = customer.Address || "";
+  document.getElementById('editCustTier').value = customer.Tier;
+
+  // Filter Orders for this customer
+  const custOrders = globalData.orders.filter(o => o.CustomerID === custId);
+  const orderBody = document.getElementById('crmOrderHistory');
+  orderBody.innerHTML = "";
   
-  // Fill Print Area
+  custOrders.forEach(o => {
+    orderBody.innerHTML += `
+      <tr>
+        <td>${o.OrderID}</td>
+        <td>${new Date(o.Date).toLocaleDateString()}</td>
+        <td>${formatRupiah(o.GrandTotal)}</td>
+        <td><input type="number" id="pay_${o.OrderID}" value="${o.AmountPaid}" style="width:100px;"></td>
+        <td>
+          <select id="stat_${o.OrderID}">
+            <option value="Draft" ${o.Status==='Draft'?'selected':''}>Draft</option>
+            <option value="DP" ${o.Status==='DP'?'selected':''}>DP</option>
+            <option value="Lunas" ${o.Status==='Lunas'?'selected':''}>Lunas</option>
+          </select>
+        </td>
+        <td><button onclick="updateOrderState('${o.OrderID}')" style="background:#27ae60; padding:8px;">Save</button></td>
+      </tr>
+    `;
+  });
+  document.getElementById('crmProfile').style.display = 'block';
+}
+
+// 6. CRM: Edit Customer Profile
+async function updateCustomerProfile() {
+  const payload = {
+    customerId: document.getElementById('editCustId').value,
+    name: document.getElementById('editCustName').value,
+    phone: document.getElementById('editCustWA').value,
+    address: document.getElementById('editCustAddress').value,
+    tier: document.getElementById('editCustTier').value
+  };
+  await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateCustomer", payload: payload }) });
+  alert("Profile Updated!");
+}
+
+// 7. CRM: Update Order Payment/Status
+async function updateOrderState(orderId) {
+  const payload = {
+    orderId: orderId,
+    amountPaid: document.getElementById(`pay_${orderId}`).value,
+    status: document.getElementById(`stat_${orderId}`).value
+  };
+  await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateOrder", payload: payload }) });
+  alert("Order Updated!");
+}
+
+// 8. PDF Printing
+function generateDocument(docType) {
   document.getElementById('printDocType').innerText = docType;
-  document.getElementById('printCustName').innerText = custName;
-  document.getElementById('printCustWA').innerText = custWA;
+  document.getElementById('printCustName').innerText = document.getElementById('custName').value;
   document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID');
   
   const printBody = document.getElementById('printTableBody');
   printBody.innerHTML = "";
-  
   cart.forEach(item => {
-    printBody.innerHTML += `
-      <tr style="border-bottom: 1px solid #ddd;">
-        <td style="padding: 10px;"><b>${item.room}</b><br><span style="color:#555; font-size: 14px;">${item.itemName}</span></td>
-        <td style="padding: 10px;">${item.qtyDesc}<br><span style="color:#555; font-size: 12px;">(${item.ukuran})</span></td>
-        <td style="padding: 10px; text-align: right;">${formatRupiah(item.subtotalPrice)}</td>
-      </tr>
-    `;
+    printBody.innerHTML += `<tr><td style="padding:10px;"><b>${item.room}</b><br><small>${item.itemName}</small></td><td style="padding:10px;">${item.qtyDesc} (${item.ukuran})</td><td style="text-align:right;">${formatRupiah(item.subtotalPrice)}</td></tr>`;
   });
-
   document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
-  
-  // Hide DP/Sisa section if it's just a Proposal
-  const paymentSection = document.getElementById('printPaymentSection');
-  if (docType === 'Proposal') {
-    paymentSection.style.display = 'none';
-  } else {
-    paymentSection.style.display = 'block';
-    document.getElementById('printPaid').innerText = formatRupiah(amountPaid);
-    document.getElementById('printSisa').innerText = formatRupiah(cartTotals.grandTotal - amountPaid);
-  }
-
-  // Trigger Browser Print Dialog
   window.print();
 }
