@@ -151,9 +151,31 @@ function updateCartUI() {
 function removeWindow(index) { cart.splice(index, 1); updateCartUI(); }
 
 function clearCartAndOrder() {
-  cart = []; document.getElementById('currentOrderId').value = "";
+  // 1. Clear Cart & IDs
+  cart = []; 
+  document.getElementById('currentOrderId').value = "";
   document.getElementById('editAlert').hidden = true;
   document.getElementById('discountValue').value = 0;
+  
+  // 2. Clear Customer Details
+  document.getElementById('custName').value = "";
+  document.getElementById('custWA').value = "";
+  document.getElementById('custAddress').value = "";
+  document.getElementById('custTier').value = "Price_Reguler";
+  
+  // 3. Clear Window Details
+  document.getElementById('roomName').value = "";
+  document.getElementById('width').value = "1.0";
+  document.getElementById('height').value = "1.0";
+  document.getElementById('mainFabric').value = "";
+  document.getElementById('incRel').checked = true;
+  document.getElementById('incPlong').checked = true;
+  document.getElementById('incJahit').checked = true;
+  
+  // 4. Clear Payment Info
+  document.getElementById('orderStatus').value = "Draft";
+  document.getElementById('amountPaid').value = "0";
+
   updateCartUI();
 }
 
@@ -227,7 +249,10 @@ function loadCustomerProfile(custId) {
         <td>${new Date(o.Date).toLocaleDateString()}</td>
         <td>${formatRupiah(o.GrandTotal)}</td>
         <td><b>${o.Status}</b></td>
-        <td><button onclick="editOrderInPOS('${o.OrderID}', '${custId}')" style="background:#2980b9; padding:5px 10px;">Edit</button></td>
+        <td style="display: flex; gap: 5px;">
+          <button onclick="editOrderInPOS('${o.OrderID}', '${custId}')" style="background:#2980b9; padding:5px 10px;">Edit</button>
+          <button onclick="deleteOrderPermanently('${o.OrderID}')" style="background:#e74c3c; padding:5px 10px;">Delete</button>
+        </td>
       </tr>`;
   });
   document.getElementById('crmProfile').style.display = 'block';
@@ -286,6 +311,31 @@ async function updateCustomerProfile() {
   };
   await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateCustomer", payload: payload }) });
   alert("Profile Updated!"); location.reload();
+}
+
+// ==========================================
+// DELETE ORDER
+// ==========================================
+async function deleteOrderPermanently(orderId) {
+  const isConfirmed = confirm(`Are you sure you want to permanently delete order ${orderId}? This cannot be undone.`);
+  if (!isConfirmed) return;
+
+  try {
+    const res = await fetch(API_URL, { 
+      method: "POST", 
+      body: JSON.stringify({ action: "deleteOrder", payload: { orderId: orderId } }) 
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      alert("Order successfully deleted!");
+      location.reload(); // Refresh the page to update the CRM list
+    } else {
+      alert("Error deleting order: " + data.error);
+    }
+  } catch(e) { 
+    alert("Network Error!"); 
+  }
 }
 
 // ==========================================
