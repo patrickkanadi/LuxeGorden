@@ -6,8 +6,6 @@
   <title>Luxe Gorden POS & ERP</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
-    
-    /* Navbar Styles */
     .navbar { background: #2c3e50; padding: 15px 20px; display: flex; gap: 20px; }
     .navbar h2 { color: #f39c12; margin: 0; margin-right: 20px; }
     .navbar button { background: none; border: none; color: #ecf0f1; font-size: 16px; cursor: pointer; font-weight: bold; padding: 5px 10px; }
@@ -30,23 +28,24 @@
     .btn-print-inv { background: #8e44ad; color: white; }
     button:hover { opacity: 0.9; }
     
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;}
+    th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
     th { background: #f9f9f9; }
+    
+    .room-header { background: #ecf0f1; font-weight: bold; }
+    .component-row td { padding-top: 5px; padding-bottom: 5px; }
 
     #sysStatus { padding: 10px; text-align: center; font-weight: bold; background: #f1c40f; }
-    
-    /* Tab Control */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Print Styles */
     #print-area { display: none; background: white; padding: 40px; }
     @media print {
       body { background: white; margin: 0; padding: 0; }
       .navbar, .container, #sysStatus { display: none !important; }
       #print-area { display: block !important; }
       .print-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px;}
+      .room-header { background: #eee !important; -webkit-print-color-adjust: exact; }
     }
   </style>
 </head>
@@ -54,7 +53,7 @@
 
   <div class="navbar">
     <h2>LG ERP</h2>
-    <button class="tab-link active" onclick="switchTab('tab-pos')">1. POS (New Order)</button>
+    <button class="tab-link active" onclick="switchTab('tab-pos')">1. Order & POS</button>
     <button class="tab-link" onclick="switchTab('tab-crm')">2. CRM & History</button>
   </div>
 
@@ -63,6 +62,13 @@
   <div class="container">
     
     <div id="tab-pos" class="tab-content active">
+      <input type="hidden" id="currentOrderId" value="">
+      
+      <div class="card" style="display:flex; justify-content: space-between; align-items: center;" id="editAlert" hidden>
+        <span style="color:#e74c3c; font-weight:bold;">Editing Existing Order: <span id="displayOrderId"></span></span>
+        <button onclick="clearCartAndOrder()" style="width:auto; background:#7f8c8d; color:white; padding: 5px 15px;">Cancel Edit (New Order)</button>
+      </div>
+
       <div class="card">
         <h2 style="margin-top:0;">1. Customer Details</h2>
         <div class="grid-2">
@@ -70,11 +76,7 @@
           <div class="form-group"><label>WhatsApp</label><input type="text" id="custWA" placeholder="0812..."></div>
           <div class="form-group"><label>Address (Optional)</label><input type="text" id="custAddress" placeholder="Jalan..."></div>
           <div class="form-group"><label>Customer Tier</label>
-            <select id="custTier">
-              <option value="Price_Reguler">Reguler</option>
-              <option value="Price_Reseller">Reseller</option>
-              <option value="Price_VIP">VIP</option>
-            </select>
+            <select id="custTier"><option value="Price_Reguler">Reguler</option><option value="Price_Reseller">Reseller</option><option value="Price_VIP">VIP</option></select>
           </div>
         </div>
       </div>
@@ -92,17 +94,17 @@
         </div>
         <div class="form-group" style="background: #f9f9f9; padding: 10px; border-radius: 5px;">
           <label><strong>Include Add-ons:</strong></label>
-          <label style="display:inline-block; margin-right: 15px;"><input type="checkbox" id="incRel" checked> Rel</label>
-          <label style="display:inline-block; margin-right: 15px;"><input type="checkbox" id="incPlong" checked> Plong</label>
-          <label style="display:inline-block;"><input type="checkbox" id="incJahit" checked> Ongkos Jahit</label>
+          <label style="margin-right: 15px;"><input type="checkbox" id="incRel" checked> Rel</label>
+          <label style="margin-right: 15px;"><input type="checkbox" id="incPlong" checked> Plong</label>
+          <label><input type="checkbox" id="incJahit" checked> Ongkos Jahit</label>
         </div>
-        <button class="btn-add" onclick="addBOMToCart()">+ Add Window to Summary</button>
+        <button class="btn-add" onclick="addBOMToCart()">+ Add Window to Order</button>
       </div>
 
       <div class="card">
         <h2 style="margin-top:0;">3. Order Summary</h2>
         <table>
-          <thead><tr><th>Item</th><th>Ukuran</th><th>Total</th><th>Act</th></tr></thead>
+          <thead><tr><th>Item / Description</th><th>Qty / Ukuran</th><th>Subtotal</th><th>Action</th></tr></thead>
           <tbody id="cartBody"></tbody>
         </table>
         
@@ -112,7 +114,7 @@
             <div class="form-group"><label>Status Pembayaran</label><select id="orderStatus"><option>Draft</option><option>DP</option><option>Lunas</option></select></div>
             <div class="form-group"><label>Nominal Dibayar (Rp)</label><input type="number" id="amountPaid" value="0"></div>
           </div>
-          <button class="btn-save" id="btnSave" onclick="saveOrder()" style="margin-bottom: 15px;">💾 Save Order</button>
+          <button class="btn-save" id="btnSave" onclick="saveOrder()" style="margin-bottom: 15px;">💾 Save / Update Order</button>
           <div class="grid-2">
             <button class="btn-print-prop" onclick="generateDocument('Proposal')">📄 Print Proposal</button>
             <button class="btn-print-inv" onclick="generateDocument('Invoice')">🧾 Print Invoice</button>
@@ -123,10 +125,8 @@
 
     <div id="tab-crm" class="tab-content">
       <div class="card">
-        <h2>Select Customer to Edit</h2>
-        <select id="crmCustomerSelect" onchange="loadCustomerProfile()">
-          <option value="">-- Choose Customer --</option>
-        </select>
+        <h2>Select Customer</h2>
+        <select id="crmCustomerSelect" onchange="loadCustomerProfile()"><option value="">-- Choose Customer --</option></select>
       </div>
 
       <div id="crmProfile" class="card" style="display: none; border-top: 4px solid #f39c12;">
@@ -137,9 +137,7 @@
           <div class="form-group"><label>WhatsApp</label><input type="text" id="editCustWA"></div>
           <div class="form-group"><label>Address</label><input type="text" id="editCustAddress"></div>
           <div class="form-group"><label>Tier</label>
-            <select id="editCustTier">
-              <option value="Price_Reguler">Reguler</option><option value="Price_Reseller">Reseller</option><option value="Price_VIP">VIP</option>
-            </select>
+            <select id="editCustTier"><option value="Price_Reguler">Reguler</option><option value="Price_Reseller">Reseller</option><option value="Price_VIP">VIP</option></select>
           </div>
         </div>
         <button class="btn-update" onclick="updateCustomerProfile()">💾 Update Profile</button>
@@ -148,11 +146,8 @@
         
         <h3>Order History</h3>
         <table>
-          <thead>
-            <tr><th>Order ID</th><th>Date</th><th>Grand Total</th><th>Amount Paid</th><th>Status</th><th>Action</th></tr>
-          </thead>
-          <tbody id="crmOrderHistory">
-            </tbody>
+          <thead><tr><th>Order ID</th><th>Date</th><th>Grand Total</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="crmOrderHistory"></tbody>
         </table>
       </div>
     </div>
@@ -165,15 +160,11 @@
       <h2 id="printDocType">INVOICE</h2>
     </div>
     <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-      <div>
-        <strong>Kepada Yth:</strong><br>
-        <span id="printCustName"></span><br>
-        <span id="printCustWA"></span>
-      </div>
+      <div><strong>Kepada Yth:</strong><br><span id="printCustName"></span><br><span id="printCustWA"></span></div>
       <div style="text-align: right;"><strong>Tanggal:</strong> <span id="printDate"></span></div>
     </div>
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-      <thead><tr style="border-bottom: 2px solid #000;"><th style="text-align: left;">Room / Item</th><th style="text-align: left;">Ukuran</th><th style="text-align: right;">Subtotal</th></tr></thead>
+      <thead><tr style="border-bottom: 2px solid #000;"><th style="text-align: left;">Room / Item</th><th style="text-align: left;">Qty / Ukuran</th><th style="text-align: right;">Price</th></tr></thead>
       <tbody id="printTableBody"></tbody>
     </table>
     <div style="text-align: right; font-size: 18px; margin-bottom: 10px;"><strong>Grand Total: <span id="printGrandTotal">Rp 0</span></strong></div>
