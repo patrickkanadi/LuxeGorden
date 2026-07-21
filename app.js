@@ -10,12 +10,18 @@ window.onload = async function() {
     const response = await fetch(`${API_URL}?action=getAll`);
     globalData = await response.json();
     
-    const fabricSelect = document.getElementById('mainFabric');
-    globalData.prices.filter(p => p.Category === 'Fabric' || p.Category === 'Service').forEach(p => {
-      fabricSelect.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+    // Fill distinct dropdowns based on category
+    const kainSel = document.getElementById('kainFabric');
+    const vitraseSel = document.getElementById('vitraseFabric');
+    const rollerSel = document.getElementById('rollerFabric');
+    
+    globalData.prices.forEach(p => {
+      if(p.Category === 'Fabric') kainSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      if(p.Category === 'Vitrase' || p.Category === 'Fabric') vitraseSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      if(p.Category === 'Roller') rollerSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
     });
 
-    renderCustomerList(); // Initial CRM render
+    renderCustomerList();
     document.getElementById('sysStatus').style.display = 'none';
   } catch (err) {
     document.getElementById('sysStatus').innerText = "Failed to load database.";
@@ -29,67 +35,112 @@ function switchTab(tabId) {
   event.target.classList.add('active');
 }
 
+function toggleLayers() {
+  document.getElementById('configKain').style.display = document.getElementById('layerKain').checked ? 'block' : 'none';
+  document.getElementById('configVitrase').style.display = document.getElementById('layerVitrase').checked ? 'block' : 'none';
+  document.getElementById('configRoller').style.display = document.getElementById('layerRoller').checked ? 'block' : 'none';
+}
+
 function formatRupiah(number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
 }
 
 // ==========================================
-// CART, BOM ENGINE & DISCOUNT
+// MODULAR CART & BOM ENGINE
 // ==========================================
 function addBOMToCart() {
-  const fabricCode = document.getElementById('mainFabric').value;
-  if (!fabricCode) return alert("Select Fabric!");
-
-  const tier = document.getElementById('custTier').value; 
   const room = document.getElementById('roomName').value || "Unnamed Window";
-  let w = Math.max(parseFloat(document.getElementById('width').value) || 1.0, 1.0);
-  let h = Math.max(parseFloat(document.getElementById('height').value) || 1.0, 1.0);
-  
-  // ==========================================
-  // THE UPGRADED SMART CALCULATION ENGINE
-  // ==========================================
-  let fabricQty = 0;
-  let lipatan = 0.20; // 20cm hem/fold allowance
-  let fabricRollWidth = 2.80; // Standard fabric roll width
-
-  if (h <= (fabricRollWidth - lipatan)) {
-    // HORIZONTAL CUTTING: Window is short enough to fit the roll width.
-    // Uses a fold multiplier (usually 2.0x to 2.5x the width for nice waves)
-    let foldMultiplier = 2.0; 
-    fabricQty = w * foldMultiplier;
-  } else {
-    // VERTICAL CUTTING: Window is taller than the roll. Calculate vertical panels.
-    // Panel effective width is usually half the roll (1.4m)
-    let effectivePanelWidth = 1.4; 
-    let panelsRequired = Math.ceil((w + 0.10) / effectivePanelWidth);
-    fabricQty = panelsRequired * (h + lipatan);
-  }
-  
-  // Round fabric quantity to 1 decimal place (e.g., 9.3m) just like your spreadsheet
-  fabricQty = Math.round(fabricQty * 10) / 10; 
+  let frameW = Math.max(parseFloat(document.getElementById('width').value) || 1.0, 1.0);
+  let frameH = Math.max(parseFloat(document.getElementById('height').value) || 1.0, 1.0);
+  const tier = document.getElementById('custTier').value; 
   
   let comps = [];
-  
-  // Main Fabric
-  comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: fabricQty, desc: `${fabricQty} m` });
-  
-  // Accessories
-  if (document.getElementById('incRel').checked) {
-      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
-  }
-  if (document.getElementById('incPlong').checked) {
-      let rings = Math.ceil(w * 12);
-      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
-  }
-  if (document.getElementById('incJahit').checked) {
-      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty} m` });
+  let summaryDesc = [];
+
+  // Helper Function for Fabric Math (Kain & Vitrase)
+  function calculateFabric(w, h) {
+    let curtainW = w + 0.10;
+    let curtainH = h + 0.25;
+    let maxHoriz = 2.80 - 0.15; // 2.65m
+    let qty = 0;
+    
+    if (curtainH <= maxHoriz) {
+      qty = curtainW * 2.0; // Horizontal Biasa
+    } else {
+      let rawPanels = curtainW / 1.40;
+      let panels = Math.ceil(rawPanels * 2) / 2;
+      qty = panels * curtainH; // Vertical Panels
+    }
+    return Math.round(qty * 100) / 100;
   }
 
+  // --- 1. KAIN LAYER ---
+  if (document.getElementById('layerKain').checked) {
+    let fabricCode = document.getElementById('kainFabric').value;
+    let model = document.getElementById('kainModel').value;
+    let railCode = document.getElementById('kainRail').value;
+    if(!fabricCode) return alert("Select Kain Fabric!");
+    
+    let baseQty = calculateFabric(frameW, frameH);
+    let fabricObj = globalData.prices.find(p => p.ItemCode === fabricCode);
+    
+    // Main Fabric
+    comps.push({ obj: fabricObj, qty: baseQty, desc: `${baseQty} m` });
+    // Tieback (Tali Ikat) -> Same fabric, 0.25m
+    comps.push({ obj: fabricObj, qty: 0.25, desc: `0.25 m`, customName: `Tali Ikat (${fabricObj.ItemName})` });
+    // Jahit
+    comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
+    // Railing
+    if(railCode !== 'none') {
+      comps.push({ obj: globalData.prices.find(p => p.ItemCode === railCode), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    }
+    // Plong (9 per meter of base fabric)
+    if(model === 'Plong') {
+      let rings = Math.ceil(baseQty * 9);
+      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
+    }
+    summaryDesc.push(`Gorden ${model}`);
+  }
+
+  // --- 2. VITRASE LAYER ---
+  if (document.getElementById('layerVitrase').checked) {
+    let fabricCode = document.getElementById('vitraseFabric').value;
+    let railCode = document.getElementById('vitraseRail').value;
+    if(!fabricCode) return alert("Select Vitrase Fabric!");
+    
+    let baseQty = calculateFabric(frameW, frameH);
+    
+    // Main Vitrase
+    comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: baseQty, desc: `${baseQty} m` });
+    // Jahit
+    comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
+    // Railing
+    if(railCode !== 'none') {
+      comps.push({ obj: globalData.prices.find(p => p.ItemCode === railCode), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    }
+    summaryDesc.push(`Vitrase`);
+  }
+
+  // --- 3. ROLLER BLIND LAYER ---
+  if (document.getElementById('layerRoller').checked) {
+    let fabricCode = document.getElementById('rollerFabric').value;
+    if(!fabricCode) return alert("Select Roller Blind!");
+    
+    // Roller blind is calculated per square meter (m2) based on the exact frame sizes you requested
+    let area = frameW * frameH;
+    
+    comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: area, desc: `${area.toFixed(2)} m2` });
+    summaryDesc.push(`Roller Blind`);
+  }
+
+  if (comps.length === 0) return alert("Please check at least one layer to add!");
+
+  // Package into Window Object
   let windowObject = {
     roomId: Date.now(), 
     roomName: room,
-    ukuran: `L:${w}m x T:${h}m`,
-    w: w, h: h,
+    ukuran: `L:${frameW}m x T:${frameH}m [${summaryDesc.join(' + ')}]`,
+    w: frameW, h: frameH,
     components: []
   };
 
@@ -97,14 +148,23 @@ function addBOMToCart() {
     if (!comp.obj) return; 
     let sellPrice = comp.obj[tier] * comp.qty;
     windowObject.components.push({
-      itemCode: comp.obj.ItemCode, itemName: comp.obj.ItemName,
-      qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
-      subtotalPrice: sellPrice, supplier: comp.obj.SupplierName
+      itemCode: comp.obj.ItemCode, 
+      itemName: comp.customName || comp.obj.ItemName, // Uses custom name for Tiebacks
+      qtyDesc: comp.desc, 
+      baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
+      subtotalPrice: sellPrice, 
+      supplier: comp.obj.SupplierName
     });
   });
 
   cart.push(windowObject);
   updateCartUI();
+  
+  // Reset toggles for next room
+  document.getElementById('layerKain').checked = false;
+  document.getElementById('layerVitrase').checked = false;
+  document.getElementById('layerRoller').checked = false;
+  toggleLayers();
 }
 
 function updateCartUI() {
