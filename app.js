@@ -1,23 +1,20 @@
 // YOUR SPECIFIC GOOGLE WEB APP URL
 const API_URL = "https://script.google.com/macros/s/AKfycbyKUqD4vfQ1nRVLvxU_CXvKx2mtu-pWaPz43D1aYSea7QE3CwjS_BIJK2yRTWduukoM/exec"; 
 
-let globalData = { prices: [], customers: [], orders: [] };
-let cart = [];
+let globalData = { prices: [], customers: [], orders: [], orderDetails: [] };
+let cart = []; // Cart now stores Window Objects containing Components
 let cartTotals = { grandTotal: 0, totalModal: 0 };
 
-// 1. Initialize & Fetch Data
 window.onload = async function() {
   try {
     const response = await fetch(`${API_URL}?action=getAll`);
     globalData = await response.json();
     
-    // Fill Fabric Dropdown
     const fabricSelect = document.getElementById('mainFabric');
     globalData.prices.filter(p => p.Category === 'Fabric' || p.Category === 'Service').forEach(p => {
       fabricSelect.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
     });
 
-    // Fill CRM Customer Dropdown
     const crmSelect = document.getElementById('crmCustomerSelect');
     globalData.customers.forEach(c => {
       crmSelect.innerHTML += `<option value="${c.CustomerID}">${c.Name} (${c.Phone_WA})</option>`;
@@ -25,11 +22,10 @@ window.onload = async function() {
     
     document.getElementById('sysStatus').style.display = 'none';
   } catch (err) {
-    document.getElementById('sysStatus').innerText = "Failed to load database. Check API URL.";
+    document.getElementById('sysStatus').innerText = "Failed to load database.";
   }
 };
 
-// 2. Tab Navigation
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
@@ -41,7 +37,9 @@ function formatRupiah(number) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
 }
 
-// 3. POS: Add to Cart
+// ==========================================
+// CART & BOM ENGINE (Nested Structure)
+// ==========================================
 function addBOMToCart() {
   const fabricCode = document.getElementById('mainFabric').value;
   if (!fabricCode) return alert("Select Fabric!");
@@ -59,14 +57,25 @@ function addBOMToCart() {
   if (document.getElementById('incPlong').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(w * 12), desc: `${Math.ceil(w * 12)} pcs` });
   if (document.getElementById('incJahit').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
 
+  let windowObject = {
+    roomId: Date.now(), // unique ID for deletion
+    roomName: room,
+    ukuran: `L:${w}m x T:${h}m`,
+    w: w, h: h,
+    components: []
+  };
+
   comps.forEach(comp => {
     if (!comp.obj) return; 
-    cart.push({
-      room: room, ukuran: `L:${w} x T:${h}`, itemCode: comp.obj.ItemCode, itemName: comp.obj.ItemName,
-      w: w, h: h, qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
-      subtotalPrice: (comp.obj[tier] * comp.qty), supplier: comp.obj.SupplierName
+    let sellPrice = comp.obj[tier] * comp.qty;
+    windowObject.components.push({
+      itemCode: comp.obj.ItemCode, itemName: comp.obj.ItemName,
+      qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
+      subtotalPrice: sellPrice, supplier: comp.obj.SupplierName
     });
   });
+
+  cart.push(windowObject);
   updateCartUI();
 }
 
@@ -75,22 +84,46 @@ function updateCartUI() {
   tbody.innerHTML = "";
   cartTotals.grandTotal = 0; cartTotals.totalModal = 0;
 
-  cart.forEach((item, index) => {
-    cartTotals.grandTotal += item.subtotalPrice;
-    cartTotals.totalModal += item.baseCostTotal;
-    tbody.innerHTML += `<tr>
-      <td><b>${item.room}</b><br><small>${item.itemName}</small></td>
-      <td>${item.ukuran}</td>
-      <td>${formatRupiah(item.subtotalPrice)}</td>
-      <td><button onclick="removeItem(${index})" style="background:#e74c3c; padding:5px;">X</button></td>
-    </tr>`;
+  cart.forEach((windowObj, index) => {
+    // Render Room Header Row
+    tbody.innerHTML += `
+      <tr class="room-header">
+        <td colspan="3"><b>${windowObj.roomName}</b> (${windowObj.ukuran})</td>
+        <td><button onclick="removeWindow(${index})" style="background:#e74c3c; padding:5px 10px;">Delete</button></td>
+      </tr>
+    `;
+    
+    // Render Components under Room
+    windowObj.components.forEach(c => {
+      cartTotals.grandTotal += c.subtotalPrice;
+      cartTotals.totalModal += c.baseCostTotal;
+      let displayPrice = c.subtotalPrice === 0 ? '<span style="color:green; font-weight:bold;">Included</span>' : formatRupiah(c.subtotalPrice);
+      
+      tbody.innerHTML += `
+        <tr class="component-row">
+          <td style="padding-left: 20px; color:#555;">- ${c.itemName}</td>
+          <td>${c.qtyDesc}</td>
+          <td>${displayPrice}</td>
+          <td></td>
+        </tr>
+      `;
+    });
   });
+  
   document.getElementById('displayTotal').innerText = formatRupiah(cartTotals.grandTotal);
 }
 
-function removeItem(index) { cart.splice(index, 1); updateCartUI(); }
+function removeWindow(index) { cart.splice(index, 1); updateCartUI(); }
 
-// 4. POS: Save Order
+function clearCartAndOrder() {
+  cart = []; document.getElementById('currentOrderId').value = "";
+  document.getElementById('editAlert').hidden = true;
+  updateCartUI();
+}
+
+// ==========================================
+// SAVE & EDIT ORDERS
+// ==========================================
 async function saveOrder() {
   const custName = document.getElementById('custName').value.trim();
   if (!custName || cart.length === 0) return alert("Name & Cart are required!");
@@ -98,21 +131,33 @@ async function saveOrder() {
   const btn = document.getElementById('btnSave');
   btn.innerText = "Saving..."; btn.disabled = true;
 
+  // Flatten Cart for Backend Database (Order_Details)
+  let flatCart = [];
+  cart.forEach(w => {
+    w.components.forEach(c => {
+      flatCart.push({...c, room: w.roomName, w: w.w, h: w.h});
+    });
+  });
+
   const payload = {
+    orderId: document.getElementById('currentOrderId').value,
     customerName: custName, customerWA: document.getElementById('custWA').value,
     customerAddress: document.getElementById('custAddress').value, customerTier: document.getElementById('custTier').value,
     grandTotal: cartTotals.grandTotal, totalModal: cartTotals.totalModal,
-    amountPaid: document.getElementById('amountPaid').value, status: document.getElementById('orderStatus').value, cartItems: cart
+    amountPaid: document.getElementById('amountPaid').value, status: document.getElementById('orderStatus').value, 
+    cartItems: flatCart
   };
 
   try {
     const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveOrder", payload: payload }) });
     const data = await res.json();
-    if (data.success) { alert("Saved!"); location.reload(); }
-  } catch(e) { alert("Error!"); btn.innerText = "💾 Save Order"; btn.disabled = false; }
+    if (data.success) { alert("Order Saved Successfully!"); location.reload(); }
+  } catch(e) { alert("Error!"); btn.innerText = "💾 Save / Update Order"; btn.disabled = false; }
 }
 
-// 5. CRM: Load Customer & Orders
+// ==========================================
+// CRM: VIEW AND EDIT LOGIC
+// ==========================================
 function loadCustomerProfile() {
   const custId = document.getElementById('crmCustomerSelect').value;
   if (!custId) return document.getElementById('crmProfile').style.display = 'none';
@@ -124,7 +169,6 @@ function loadCustomerProfile() {
   document.getElementById('editCustAddress').value = customer.Address || "";
   document.getElementById('editCustTier').value = customer.Tier;
 
-  // Filter Orders for this customer
   const custOrders = globalData.orders.filter(o => o.CustomerID === custId);
   const orderBody = document.getElementById('crmOrderHistory');
   orderBody.innerHTML = "";
@@ -135,22 +179,61 @@ function loadCustomerProfile() {
         <td>${o.OrderID}</td>
         <td>${new Date(o.Date).toLocaleDateString()}</td>
         <td>${formatRupiah(o.GrandTotal)}</td>
-        <td><input type="number" id="pay_${o.OrderID}" value="${o.AmountPaid}" style="width:100px;"></td>
-        <td>
-          <select id="stat_${o.OrderID}">
-            <option value="Draft" ${o.Status==='Draft'?'selected':''}>Draft</option>
-            <option value="DP" ${o.Status==='DP'?'selected':''}>DP</option>
-            <option value="Lunas" ${o.Status==='Lunas'?'selected':''}>Lunas</option>
-          </select>
-        </td>
-        <td><button onclick="updateOrderState('${o.OrderID}')" style="background:#27ae60; padding:8px;">Save</button></td>
+        <td><b>${o.Status}</b></td>
+        <td><button onclick="editOrderInPOS('${o.OrderID}', '${custId}')" style="background:#2980b9; padding:8px;">View & Edit in POS</button></td>
       </tr>
     `;
   });
   document.getElementById('crmProfile').style.display = 'block';
 }
 
-// 6. CRM: Edit Customer Profile
+function editOrderInPOS(orderId, custId) {
+  // 1. Populate Customer Data
+  const customer = globalData.customers.find(c => c.CustomerID === custId);
+  document.getElementById('custName').value = customer.Name;
+  document.getElementById('custWA').value = customer.Phone_WA;
+  document.getElementById('custAddress').value = customer.Address || "";
+  document.getElementById('custTier').value = customer.Tier;
+
+  const order = globalData.orders.find(o => o.OrderID === orderId);
+  document.getElementById('orderStatus').value = order.Status;
+  document.getElementById('amountPaid').value = order.AmountPaid;
+
+  // 2. Rebuild Cart Nested Structure from flat Order_Details
+  cart = [];
+  const details = globalData.orderDetails.filter(d => d.OrderID === orderId);
+  
+  // Group by Room Name
+  let roomsMap = {};
+  details.forEach(d => {
+    if (!roomsMap[d.RoomName]) {
+      roomsMap[d.RoomName] = {
+        roomId: Date.now() + Math.random(),
+        roomName: d.RoomName,
+        w: d['Width(m)'], h: d['Height(m)'],
+        ukuran: `L:${d['Width(m)']}m x T:${d['Height(m)']}m`,
+        components: []
+      };
+    }
+    roomsMap[d.RoomName].components.push({
+      itemCode: d.ItemCode, itemName: d.ItemName, qtyDesc: d['Qty/Area'],
+      baseCostTotal: parseFloat(d.BaseCostTotal), subtotalPrice: parseFloat(d.SubtotalPrice)
+    });
+  });
+
+  cart = Object.values(roomsMap);
+  
+  // 3. Switch Tab and Set Editing State
+  document.getElementById('currentOrderId').value = orderId;
+  document.getElementById('displayOrderId').innerText = orderId;
+  document.getElementById('editAlert').hidden = false;
+  
+  updateCartUI();
+  
+  // Click the POS tab programmatically
+  document.querySelectorAll('.tab-link')[0].click();
+}
+
 async function updateCustomerProfile() {
   const payload = {
     customerId: document.getElementById('editCustId').value,
@@ -160,31 +243,39 @@ async function updateCustomerProfile() {
     tier: document.getElementById('editCustTier').value
   };
   await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateCustomer", payload: payload }) });
-  alert("Profile Updated!");
+  alert("Profile Updated!"); location.reload();
 }
 
-// 7. CRM: Update Order Payment/Status
-async function updateOrderState(orderId) {
-  const payload = {
-    orderId: orderId,
-    amountPaid: document.getElementById(`pay_${orderId}`).value,
-    status: document.getElementById(`stat_${orderId}`).value
-  };
-  await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateOrder", payload: payload }) });
-  alert("Order Updated!");
-}
-
-// 8. PDF Printing
+// ==========================================
+// PRINTING ENGINE (Uses Nested Layout)
+// ==========================================
 function generateDocument(docType) {
   document.getElementById('printDocType').innerText = docType;
   document.getElementById('printCustName').innerText = document.getElementById('custName').value;
+  document.getElementById('printCustWA').innerText = document.getElementById('custWA').value;
   document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID');
   
   const printBody = document.getElementById('printTableBody');
   printBody.innerHTML = "";
-  cart.forEach(item => {
-    printBody.innerHTML += `<tr><td style="padding:10px;"><b>${item.room}</b><br><small>${item.itemName}</small></td><td style="padding:10px;">${item.qtyDesc} (${item.ukuran})</td><td style="text-align:right;">${formatRupiah(item.subtotalPrice)}</td></tr>`;
+  
+  cart.forEach(windowObj => {
+    printBody.innerHTML += `<tr class="room-header"><td colspan="3"><b>${windowObj.roomName}</b> (${windowObj.ukuran})</td></tr>`;
+    windowObj.components.forEach(c => {
+      let displayPrice = c.subtotalPrice === 0 ? 'Included' : formatRupiah(c.subtotalPrice);
+      printBody.innerHTML += `<tr><td style="padding-left:20px;">- ${c.itemName}</td><td>${c.qtyDesc}</td><td style="text-align:right;">${displayPrice}</td></tr>`;
+    });
   });
+
   document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
+  
+  let paid = parseFloat(document.getElementById('amountPaid').value) || 0;
+  if (docType === 'Proposal') {
+    document.getElementById('printPaymentSection').style.display = 'none';
+  } else {
+    document.getElementById('printPaymentSection').style.display = 'block';
+    document.getElementById('printPaid').innerText = formatRupiah(paid);
+    document.getElementById('printSisa').innerText = formatRupiah(cartTotals.grandTotal - paid);
+  }
+  
   window.print();
 }
