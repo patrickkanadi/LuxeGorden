@@ -60,7 +60,7 @@ function addBOMToCart() {
   // Helper Function for Fabric Math (Kain & Vitrase)
   function calculateFabric(w, h) {
     let curtainW = w + 0.10;
-    let curtainH = h + 0.25;
+    let curtainH = h + 0.15;
     let maxHoriz = 2.80 - 0.15; // 2.65m
     let qty = 0;
     
