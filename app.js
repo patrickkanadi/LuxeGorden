@@ -45,13 +45,45 @@ function addBOMToCart() {
   let w = Math.max(parseFloat(document.getElementById('width').value) || 1.0, 1.0);
   let h = Math.max(parseFloat(document.getElementById('height').value) || 1.0, 1.0);
   
-  let fabricQty = Math.ceil((w + 0.10) / 1.4) * (h + 0.25);
+  // ==========================================
+  // THE UPGRADED SMART CALCULATION ENGINE
+  // ==========================================
+  let fabricQty = 0;
+  let lipatan = 0.20; // 20cm hem/fold allowance
+  let fabricRollWidth = 2.80; // Standard fabric roll width
+
+  if (h <= (fabricRollWidth - lipatan)) {
+    // HORIZONTAL CUTTING: Window is short enough to fit the roll width.
+    // Uses a fold multiplier (usually 2.0x to 2.5x the width for nice waves)
+    let foldMultiplier = 2.0; 
+    fabricQty = w * foldMultiplier;
+  } else {
+    // VERTICAL CUTTING: Window is taller than the roll. Calculate vertical panels.
+    // Panel effective width is usually half the roll (1.4m)
+    let effectivePanelWidth = 1.4; 
+    let panelsRequired = Math.ceil((w + 0.10) / effectivePanelWidth);
+    fabricQty = panelsRequired * (h + lipatan);
+  }
+  
+  // Round fabric quantity to 1 decimal place (e.g., 9.3m) just like your spreadsheet
+  fabricQty = Math.round(fabricQty * 10) / 10; 
+  
   let comps = [];
   
-  comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
-  if (document.getElementById('incRel').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
-  if (document.getElementById('incPlong').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(w * 12), desc: `${Math.ceil(w * 12)} pcs` });
-  if (document.getElementById('incJahit').checked) comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty.toFixed(1)} m` });
+  // Main Fabric
+  comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: fabricQty, desc: `${fabricQty} m` });
+  
+  // Accessories
+  if (document.getElementById('incRel').checked) {
+      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-REL'), qty: w, desc: `${w} m` });
+  }
+  if (document.getElementById('incPlong').checked) {
+      let rings = Math.ceil(w * 12);
+      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
+  }
+  if (document.getElementById('incJahit').checked) {
+      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: fabricQty, desc: `${fabricQty} m` });
+  }
 
   let windowObject = {
     roomId: Date.now(), 
