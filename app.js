@@ -49,8 +49,27 @@ function toggleLayers() {
   document.getElementById('configVitrase').style.display = document.getElementById('layerVitrase').checked ? 'block' : 'none';
   document.getElementById('configRoller').style.display = document.getElementById('layerRoller').checked ? 'block' : 'none';
   document.getElementById('configRoman').style.display = document.getElementById('layerRoman').checked ? 'block' : 'none';
+  document.getElementById('configCuci').style.display = document.getElementById('layerCuci').checked ? 'block' : 'none';
 }
 
+function promptAdminAccess() {
+  const pin = prompt("Enter Master PIN:");
+  if (pin === "8888") { // Change this to your preferred PIN
+    renderAnalysis();
+    renderPayables();
+    document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-analysis').classList.add('active'); // Shows first admin tab
+    
+    // Add dynamic buttons if they don't exist yet
+    if(!document.getElementById('btnAnalysisTab')) {
+      document.querySelector('.navbar').innerHTML += `<button id="btnAnalysisTab" class="tab-link active" onclick="switchTab('tab-analysis')">📊 Analysis</button><button id="btnPayablesTab" class="tab-link" onclick="switchTab('tab-payables')">💸 Payables</button>`;
+    } else {
+      switchTab('tab-analysis');
+    }
+  } else {
+    alert("Incorrect PIN.");
+  }
+}
 // ==========================================
 // BOM ENGINE & WINDOW EDITING
 // ==========================================
@@ -76,7 +95,15 @@ function addBOMToCart() {
     let curtainW = w + 0.10;
     let curtainH = h + 0.15; 
     let qty = (curtainH <= 2.80) ? (w * fullness) : (Math.ceil((curtainW / 1.40) * 2) / 2) * curtainH;
-    return Math.round(qty * 100) / 100;
+    return Number(qty.toFixed(1)); // 1 DECIMAL PLACE ROUNDING
+  }
+
+  // --- CUCI LAYER (Add this below Roman Shade block) ---
+  if (document.getElementById('layerCuci').checked) {
+    let cuciCode = document.getElementById('cuciService').value;
+    let area = Number((frameW * frameH).toFixed(1)); // 1 DECIMAL PLACE
+    comps.push({ layer: 'Jasa Cuci', obj: globalData.prices.find(p => p.ItemCode === cuciCode), qty: area, desc: `${area.toFixed(1)} m2` });
+    summaryDesc.push(`Cuci`);
   }
 
   // --- KAIN ---
@@ -285,7 +312,18 @@ async function saveOrder() {
 
 function renderCustomerList() {
   const filterText = document.getElementById('crmSearch').value.toLowerCase();
-  const listDiv = document.getElementById('crmCustomerList'); listDiv.innerHTML = "";
+  const listDiv = document.getElementById('crmCustomerList'); 
+  listDiv.innerHTML = "";
+  
+  // Set up datalist for Autocomplete
+  let datalistHTML = `<datalist id="custOptions">`;
+  globalData.customers.forEach(c => {
+    datalistHTML += `<option value="${c.Name} - ${c.Phone_WA}">`;
+  });
+  datalistHTML += `</datalist>`;
+  document.getElementById('crmSearch').setAttribute('list', 'custOptions');
+  if(!document.getElementById('custOptions')) document.body.insertAdjacentHTML('beforeend', datalistHTML);
+
   let sorted = [...globalData.customers].sort((a,b) => a.Name.localeCompare(b.Name));
   let filtered = sorted.filter(c => c.Name.toLowerCase().includes(filterText) || c.Phone_WA.includes(filterText));
   filtered.forEach(c => { listDiv.innerHTML += `<div class="crm-list-item" onclick="loadCustomerProfile('${c.CustomerID}')"><b>${c.Name}</b> <br><small style="color:#777;">${c.Phone_WA}</small></div>`; });
@@ -293,13 +331,32 @@ function renderCustomerList() {
 
 function loadCustomerProfile(custId) {
   const customer = globalData.customers.find(c => c.CustomerID === custId);
-  document.getElementById('editCustId').value = customer.CustomerID; document.getElementById('editCustName').value = customer.Name; document.getElementById('editCustWA').value = customer.Phone_WA; document.getElementById('editCustAddress').value = customer.Address || ""; document.getElementById('editCustTier').value = customer.Tier;
+  document.getElementById('editCustId').value = customer.CustomerID; 
+  document.getElementById('editCustName').value = customer.Name; 
+  document.getElementById('editCustWA').value = customer.Phone_WA; 
+  document.getElementById('editCustAddress').value = customer.Address || ""; 
+  document.getElementById('editCustTier').value = customer.Tier;
+  
   const custOrders = globalData.orders.filter(o => o.CustomerID === custId);
-  const orderBody = document.getElementById('crmOrderHistory'); orderBody.innerHTML = "";
+  const orderBody = document.getElementById('crmOrderHistory'); 
+  orderBody.innerHTML = "";
+  
+  // Container wrapper for scrollable table
+  document.getElementById('crmOrderHistory').parentElement.style.display = "block";
+  document.getElementById('crmOrderHistory').parentElement.style.maxHeight = "300px";
+  document.getElementById('crmOrderHistory').parentElement.style.overflowY = "auto";
+
   custOrders.forEach(o => {
-    orderBody.innerHTML += `<tr><td>${new Date(o.Date).toLocaleDateString()}</td><td>${formatRupiah(o.GrandTotal)}</td><td><b>${o.Status}</b></td>
-      <td style="display:flex; gap:5px;"><button onclick="editOrderInPOS('${o.OrderID}', '${custId}')" style="background:#2980b9; padding:5px 10px;">Edit</button>
-      <button onclick="deleteOrderPermanently('${o.OrderID}')" style="background:#e74c3c; padding:5px 10px;">Del</button></td></tr>`;
+    // Get Items in Order
+    let items = globalData.orderDetails.filter(d => d.OrderID === o.OrderID).map(d => d.RoomName).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+    
+    orderBody.innerHTML += `<tr>
+      <td><b>${o.OrderID}</b><br><span style="color:#777;">${new Date(o.Date).toLocaleDateString()}</span></td>
+      <td><span style="font-size:10px;">${items || "No items"}</span></td>
+      <td>${formatRupiah(o.GrandTotal)}</td>
+      <td><b>${o.Status}</b></td>
+      <td style="display:flex; gap:5px;"><button onclick="editOrderInPOS('${o.OrderID}', '${custId}')" style="background:#2980b9; padding:5px;">Edit</button>
+      <button onclick="deleteOrderPermanently('${o.OrderID}')" style="background:#e74c3c; padding:5px;">Del</button></td></tr>`;
   });
   document.getElementById('crmProfile').style.display = 'block';
 }
@@ -341,6 +398,76 @@ async function deleteOrderPermanently(orderId) {
     const data = await res.json();
     if (data.success) { alert("Deleted!"); location.reload(); }
   } catch(e) { alert("Error!"); }
+}
+
+// ==========================================
+// PIUTANG, ANALYSIS & PAYABLES LOGIC
+// ==========================================
+function renderPiutang() {
+  const tbody = document.getElementById('piutangBody');
+  tbody.innerHTML = "";
+  let unpaidOrders = globalData.orders.filter(o => o.Status !== 'Lunas' && o.AmountPaid < o.GrandTotal && o.GrandTotal > 0);
+  
+  unpaidOrders.forEach(o => {
+    let cust = globalData.customers.find(c => c.CustomerID === o.CustomerID);
+    let custName = cust ? cust.Name : 'Unknown';
+    let sisa = o.GrandTotal - o.AmountPaid;
+    
+    tbody.innerHTML += `<tr>
+      <td>${o.OrderID}</td><td>${new Date(o.Date).toLocaleDateString()}</td>
+      <td>${custName}</td><td>${formatRupiah(o.GrandTotal)}</td>
+      <td>${formatRupiah(o.AmountPaid)}</td><td style="color:#e74c3c; font-weight:bold;">${formatRupiah(sisa)}</td>
+      <td><button onclick="switchTab('tab-crm'); document.getElementById('crmSearch').value='${custName}'; renderCustomerList();" style="background:#f39c12; padding:5px;">View in CRM</button></td>
+    </tr>`;
+  });
+}
+
+function renderAnalysis() {
+  const tbody = document.getElementById('analysisBody');
+  tbody.innerHTML = "";
+  let sortedOrders = [...globalData.orders].sort((a,b) => new Date(b.Date) - new Date(a.Date)); // Newest first
+  
+  sortedOrders.forEach(o => {
+    let margin = o.GrandTotal > 0 ? ((o.NetProfit / o.GrandTotal) * 100).toFixed(1) : 0;
+    tbody.innerHTML += `<tr>
+      <td>${o.OrderID}</td><td>${new Date(o.Date).toLocaleDateString()}</td>
+      <td>${formatRupiah(o.GrandTotal)}</td><td>${formatRupiah(o.TotalModal_COGS)}</td>
+      <td style="color:green; font-weight:bold;">${formatRupiah(o.NetProfit)}</td>
+      <td>${margin}%</td>
+    </tr>`;
+  });
+}
+
+function renderPayables() {
+  const tbody = document.getElementById('payablesBody');
+  tbody.innerHTML = "";
+  let totalHutang = 0;
+  
+  globalData.payables.forEach(p => {
+    let sisaHutang = p.AmountDue - p.AmountPaid;
+    if (sisaHutang > 0) totalHutang += sisaHutang;
+    
+    tbody.innerHTML += `<tr>
+      <td>${p.PayableID}</td><td>${new Date(p.Date).toLocaleDateString()}</td>
+      <td>${p.SupplierName}</td><td>${p.OrderID}</td>
+      <td>${formatRupiah(p.AmountDue)}</td>
+      <td><input type="number" id="pay_${p.PayableID}" value="${p.AmountPaid}" style="width:100px;"></td>
+      <td><select id="stat_${p.PayableID}"><option value="Unpaid" ${p.Status==='Unpaid'?'selected':''}>Unpaid</option><option value="Paid" ${p.Status==='Paid'?'selected':''}>Paid</option></select></td>
+      <td><button onclick="savePayable('${p.PayableID}')" style="background:#27ae60; padding:5px;">Update</button></td>
+    </tr>`;
+  });
+  
+  document.getElementById('totalHutang').innerText = formatRupiah(totalHutang);
+}
+
+async function savePayable(payableId) {
+  const payload = {
+    payableId: payableId,
+    amountPaid: document.getElementById(`pay_${payableId}`).value,
+    status: document.getElementById(`stat_${payableId}`).value
+  };
+  await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updatePayable", payload: payload }) });
+  alert("Payable Updated!"); location.reload();
 }
 
 function generateDocument(docType) {
