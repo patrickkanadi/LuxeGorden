@@ -95,19 +95,6 @@
     <button class="tab-link" id="btnLogout" onclick="logoutAdmin()" style="display:none; color:#e74c3c; margin-left:auto;">🔓 Logout Admin</button>
   </div>
 
-  <div id="tab-settings" class="tab-content card">
-      <h2>⚙️ System Settings</h2>
-      <div class="grid-2">
-        <div class="form-group"><label>Master PIN</label><input type="password" id="setPin"></div>
-        <div class="form-group"><label>Company Phone / WA (Invoice Header)</label><input type="text" id="setPhone"></div>
-      </div>
-      <div class="form-group">
-        <label>Bank Account (Rekening Pembayaran di Invoice)</label>
-        <input type="text" id="setBank" placeholder="e.g. BCA 12345678 a/n Nama Anda">
-      </div>
-      <button class="btn-save" onclick="saveSettings()" style="width:auto; padding: 10px 20px;">💾 Save Settings</button>
-    </div>
-
   <div id="sysStatus">Connecting to Database...</div>
 
   <div class="container">
@@ -284,10 +271,12 @@
           <hr style="margin: 20px 0;">
           
           <h3>Order History</h3>
-          <table style="font-size: 12px;">
-            <thead><tr><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Act</th></tr></thead>
-            <tbody id="crmOrderHistory"></tbody>
-          </table>
+          <div style="max-height: 300px; overflow-y: auto;">
+            <table style="font-size: 12px;">
+              <thead><tr><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th>Act</th></tr></thead>
+              <tbody id="crmOrderHistory"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -349,6 +338,19 @@
         <thead><tr><th>Payable ID</th><th>Date</th><th>Supplier</th><th>Order ID</th><th>Amount Due</th><th>Amount Paid</th><th>Status</th><th>Action</th></tr></thead>
         <tbody id="payablesBody"></tbody>
       </table>
+    </div>
+
+    <div id="tab-settings" class="tab-content card">
+      <h2>⚙️ System Settings</h2>
+      <div class="grid-2">
+        <div class="form-group"><label>Master PIN</label><input type="password" id="setPin"></div>
+        <div class="form-group"><label>Company Phone / WA (Invoice Header)</label><input type="text" id="setPhone"></div>
+      </div>
+      <div class="form-group">
+        <label>Bank Account (Rekening Pembayaran di Invoice)</label>
+        <input type="text" id="setBank" placeholder="e.g. BCA 12345678 a/n Nama Anda">
+      </div>
+      <button class="btn-save" onclick="saveSettings()" style="width:auto; padding: 10px 20px;">💾 Save Settings</button>
     </div>
   </div>
 
