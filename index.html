@@ -108,19 +108,44 @@
           <label><input type="checkbox" id="layerCuci" onchange="toggleLayers()"> 🧼 Jasa Cuci</label>
         </div>
 
-        <div class="grid-2">
-          <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
+        <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Gorden Kain</h4>
-            <div class="form-group"><label>Fabric</label><select id="kainFabric"><option value="">-- Kain --</option></select></div>
-            <div class="form-group"><label>Model</label><select id="kainModel"><option value="Biasa">Model Biasa / Lipat</option><option value="Plong">Model Plong (Smokering)</option></select></div>
+            <div class="grid-2">
+              <div class="form-group"><label>Fabric</label><select id="kainFabric"><option value="">-- Kain --</option></select></div>
+              <div class="form-group">
+                <label>Model / Pleat</label>
+                <select id="kainModel">
+                  <optgroup label="Standard Pleats">
+                    <option value="Triple Pinch Pleat">Triple Pinch Pleat</option>
+                    <option value="Goblet Pleat">Goblet Pleat</option>
+                    <option value="Ripple Fold Pleat">Ripple Fold Pleat</option>
+                  </optgroup>
+                  <optgroup label="Smokering (Plong)">
+                    <option value="Eyelet (Smokering)">Eyelet</option>
+                    <option value="Tailored Pleat (Smokering)">Tailored Pleat</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
             <div class="grid-2">
               <div class="form-group"><label>Fullness</label><select id="kainFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select></div>
               <div class="form-group"><label>Railing</label><select id="kainRail"><option value="A-REL">Normal Railing</option><option value="A-STICK">Stick Railing</option><option value="none">No Railing</option></select></div>
             </div>
           </div>
+
           <div id="configVitrase" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Vitrase</h4>
-            <div class="form-group"><label>Fabric</label><select id="vitraseFabric"><option value="">-- Vitrase --</option></select></div>
+            <div class="grid-2">
+              <div class="form-group"><label>Fabric</label><select id="vitraseFabric"><option value="">-- Vitrase --</option></select></div>
+              <div class="form-group">
+                <label>Model / Pleat</label>
+                <select id="vitraseModel">
+                  <option value="Triple Pinch Pleat">Triple Pinch Pleat</option>
+                  <option value="Goblet Pleat">Goblet Pleat</option>
+                  <option value="Ripple Fold Pleat">Ripple Fold Pleat</option>
+                </select>
+              </div>
+            </div>
             <div class="grid-2">
               <div class="form-group"><label>Fullness</label><select id="vitraseFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select></div>
               <div class="form-group"><label>Railing</label><select id="vitraseRail"><option value="A-REL">Normal Railing</option><option value="none">No Railing</option></select></div>
