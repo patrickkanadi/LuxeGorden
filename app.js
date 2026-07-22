@@ -39,7 +39,11 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
-  event.target.classList.add('active');
+  
+  // Safely assign active class to the clicked button
+  if (window.event && window.event.currentTarget) {
+    window.event.currentTarget.classList.add('active');
+  }
 }
 
 function formatRupiah(number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number); }
@@ -54,27 +58,34 @@ function toggleLayers() {
 
 function promptAdminAccess() {
   const pin = prompt("Enter Master PIN:");
+  if (pin === null || pin === "") return; // Stop if user clicks Cancel
   
   // Find PIN in globalData.settings (defaults to "8888" if missing)
   const pinSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Master_PIN');
   const masterPin = pinSetting ? pinSetting.Value.toString() : "8888";
 
-  if (pin === masterPin) {
+  if (pin === masterPin) { 
     renderAnalysis();
     renderPayables();
-    document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-analysis').classList.add('active'); // Shows first admin tab
     
-    // Add dynamic buttons if they don't exist yet
+    // Safely add dynamic buttons WITHOUT breaking the existing navbar
     if(!document.getElementById('btnAnalysisTab')) {
-      document.querySelector('.navbar').innerHTML += `<button id="btnAnalysisTab" class="tab-link active" onclick="switchTab('tab-analysis')">📊 Analysis</button><button id="btnPayablesTab" class="tab-link" onclick="switchTab('tab-payables')">💸 Payables</button>`;
-    } else {
-      switchTab('tab-analysis');
+      document.querySelector('.navbar').insertAdjacentHTML('beforeend', 
+        `<button id="btnAnalysisTab" class="tab-link" onclick="switchTab('tab-analysis')">📊 Analysis</button>
+         <button id="btnPayablesTab" class="tab-link" onclick="switchTab('tab-payables')">💸 Payables</button>`
+      );
     }
+    
+    // Switch to Analysis tab programmatically
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-analysis').classList.add('active');
+    document.getElementById('btnAnalysisTab').classList.add('active');
   } else {
     alert("Incorrect PIN.");
   }
 }
+
 // ==========================================
 // BOM ENGINE & WINDOW EDITING
 // ==========================================
