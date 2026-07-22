@@ -10,16 +10,13 @@
     .navbar h2 { color: #f39c12; margin: 0; margin-right: 20px; }
     .navbar button { background: none; border: none; color: #ecf0f1; font-size: 16px; cursor: pointer; font-weight: bold; padding: 5px 10px; }
     .navbar button.active { border-bottom: 3px solid #f39c12; color: white; }
-
     .container { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
     .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; border-top: 4px solid #2c3e50;}
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-    
     .form-group { margin-bottom: 15px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #333;}
     input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    
     button { padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px;}
     .btn-add { background: #2980b9; color: white; }
     .btn-save { background: #27ae60; color: white; font-size: 16px;}
@@ -27,22 +24,16 @@
     .btn-print-prop { background: #34495e; color: white; }
     .btn-print-inv { background: #8e44ad; color: white; }
     button:hover { opacity: 0.9; }
-    
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;}
     th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
     th { background: #f9f9f9; }
-    
     .room-header { background: #ecf0f1; font-weight: bold; }
     .component-row td { padding-top: 5px; padding-bottom: 5px; }
-    
-    /* CRM List */
     .crm-list-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
     .crm-list-item:hover { background: #f9f9f9; }
-
     #sysStatus { padding: 10px; text-align: center; font-weight: bold; background: #f1c40f; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-
     #print-area { display: none; background: white; padding: 40px; }
     @media print {
       body { background: white; margin: 0; padding: 0; }
@@ -60,11 +51,9 @@
     <button class="tab-link active" onclick="switchTab('tab-pos')">1. Order & POS</button>
     <button class="tab-link" onclick="switchTab('tab-crm')">2. CRM & History</button>
   </div>
-
   <div id="sysStatus">Connecting to Database...</div>
 
   <div class="container">
-    
     <div id="tab-pos" class="tab-content active">
       <input type="hidden" id="currentOrderId" value="">
       
@@ -92,7 +81,7 @@
           <div class="form-group"><label>Frame Lebar (m)</label><input type="number" id="width" step="0.01" value="1.0"></div>
           <div class="form-group"><label>Frame Tinggi (m)</label><input type="number" id="height" step="0.01" value="1.0"></div>
         </div>
-      
+
         <div class="form-group" style="background: #e8f8f5; padding: 15px; border-radius: 5px; border-left: 4px solid #27ae60;">
           <label><strong>Select Window Layers:</strong></label>
           <label style="margin-right: 15px;"><input type="checkbox" id="layerKain" onchange="toggleLayers()"> Gorden Kain</label>
@@ -100,59 +89,46 @@
           <label style="margin-right: 15px;"><input type="checkbox" id="layerRoller" onchange="toggleLayers()"> Roller Blind</label>
           <label><input type="checkbox" id="layerRoman" onchange="toggleLayers()"> Roman Shade</label>
         </div>
-      
+
         <div class="grid-2">
           <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Gorden Kain</h4>
             <div class="form-group"><label>Fabric</label><select id="kainFabric"><option value="">-- Kain --</option></select></div>
             <div class="form-group"><label>Model</label><select id="kainModel"><option value="Biasa">Model Biasa / Lipat</option><option value="Plong">Model Plong (Smokering)</option></select></div>
             <div class="grid-2">
-              <div class="form-group">
-                <label>Fullness (Lipatan)</label>
-                <select id="kainFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select>
-              </div>
+              <div class="form-group"><label>Fullness</label><select id="kainFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select></div>
               <div class="form-group"><label>Railing</label><select id="kainRail"><option value="A-REL">Normal Railing</option><option value="A-STICK">Stick Railing</option><option value="none">No Railing</option></select></div>
             </div>
           </div>
-      
           <div id="configVitrase" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Vitrase</h4>
             <div class="form-group"><label>Fabric</label><select id="vitraseFabric"><option value="">-- Vitrase --</option></select></div>
             <div class="grid-2">
-              <div class="form-group">
-                <label>Fullness (Lipatan)</label>
-                <select id="vitraseFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select>
-              </div>
+              <div class="form-group"><label>Fullness</label><select id="vitraseFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select></div>
               <div class="form-group"><label>Railing</label><select id="vitraseRail"><option value="A-REL">Normal Railing</option><option value="none">No Railing</option></select></div>
             </div>
           </div>
         </div>
-      
+
         <div class="grid-2" style="margin-top: 15px;">
           <div id="configRoller" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Roller Blind</h4>
             <div class="form-group"><label>Product</label><select id="rollerFabric"><option value="">-- Roller Blind --</option></select></div>
           </div>
-      
           <div id="configRoman" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Roman Shade</h4>
             <div class="form-group"><label>Main Fabric</label><select id="romanFabric"><option value="">-- Select Fabric --</option></select></div>
-            
             <div class="form-group" style="background: #eee; padding: 10px; border-radius: 5px;">
               <label><input type="checkbox" id="incRomanLining" onchange="document.getElementById('romanLiningDiv').style.display = this.checked ? 'block' : 'none'"> Include Lining (Furing)</label>
-              <div id="romanLiningDiv" style="display:none; margin-top: 10px;">
-                <select id="romanLining"><option value="">-- Select Lining Fabric --</option></select>
-              </div>
+              <div id="romanLiningDiv" style="display:none; margin-top: 10px;"><select id="romanLining"><option value="">-- Select Lining Fabric --</option></select></div>
             </div>
-      
             <div class="grid-2">
               <div class="form-group"><label>Mechanism Rail</label><select id="romanMech"><option value="">-- Mechanism --</option></select></div>
               <div class="form-group"><label>Sewing Labor</label><select id="romanLabor"><option value="">-- Labor --</option></select></div>
             </div>
           </div>
         </div>
-      
-        <button class="btn-add" onclick="addBOMToCart()" style="margin-top: 15px;">+ Add Window to Order</button>
+        <button id="btnAddUpdateWindow" class="btn-add" onclick="addBOMToCart()" style="margin-top: 15px;">+ Add Window to Order</button>
       </div>
 
       <div class="card">
@@ -163,9 +139,9 @@
         </table>
         
         <div style="background: #e8f8f5; padding: 20px; border-radius: 5px; margin-top: 20px;">
-          
           <div class="grid-2" style="margin-bottom: 20px;">
-            <div></div> <div class="form-group">
+            <div></div>
+            <div class="form-group">
               <label style="text-align: right;">Discount</label>
               <div style="display:flex; gap:10px; justify-content: flex-end;">
                 <select id="discountType" onchange="updateCartUI()" style="width: 80px;"><option value="rp">Rp</option><option value="percent">%</option></select>
@@ -173,7 +149,6 @@
               </div>
             </div>
           </div>
-
           <h2 style="margin-top:0; text-align: right;">Grand Total: <span id="displayTotal">Rp 0</span></h2>
           <p style="text-align: right; color:#555; margin-top:-10px; font-size: 12px;">(Subtotal: <span id="displaySubtotal">Rp 0</span>)</p>
 
@@ -233,12 +208,10 @@
       <div><strong>Kepada Yth:</strong><br><span id="printCustName"></span><br><span id="printCustWA"></span><br><span id="printCustAddress"></span></div>
       <div style="text-align: right;"><strong>Tanggal:</strong> <span id="printDate"></span></div>
     </div>
-    
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
       <thead><tr style="border-bottom: 2px solid #000;"><th style="text-align: left;">Room / Item</th><th style="text-align: left;">Qty / Ukuran</th><th style="text-align: right;">Price</th></tr></thead>
       <tbody id="printTableBody"></tbody>
     </table>
-    
     <div style="text-align: right; font-size: 16px; margin-bottom: 10px;">
       Subtotal: <span id="printSubtotal">Rp 0</span><br>
       Discount: <span id="printDiscount" style="color:red;">- Rp 0</span>
@@ -246,9 +219,7 @@
     <div style="text-align: right; font-size: 20px; margin-bottom: 20px; border-top: 1px solid #000; padding-top:10px;">
       <strong>Grand Total: <span id="printGrandTotal">Rp 0</span></strong>
     </div>
-
-    <div id="printMessageArea" style="background:#f9f9f9; padding: 15px; border-left: 4px solid #2c3e50;">
-      </div>
+    <div id="printMessageArea" style="background:#f9f9f9; padding: 15px; border-left: 4px solid #2c3e50;"></div>
   </div>
 
   <script src="app.js"></script>
