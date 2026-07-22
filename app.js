@@ -39,6 +39,7 @@ function toggleLayers() {
   document.getElementById('configKain').style.display = document.getElementById('layerKain').checked ? 'block' : 'none';
   document.getElementById('configVitrase').style.display = document.getElementById('layerVitrase').checked ? 'block' : 'none';
   document.getElementById('configRoller').style.display = document.getElementById('layerRoller').checked ? 'block' : 'none';
+  document.getElementById('configRoman').style.display = document.getElementById('layerRoman').checked ? 'block' : 'none';
 }
 
 function formatRupiah(number) {
@@ -46,7 +47,7 @@ function formatRupiah(number) {
 }
 
 // ==========================================
-// MODULAR CART & BOM ENGINE
+// MODULAR CART & BOM ENGINE (With Fullness & Layer Grouping)
 // ==========================================
 function addBOMToCart() {
   const room = document.getElementById('roomName').value || "Unnamed Window";
@@ -57,27 +58,19 @@ function addBOMToCart() {
   let comps = [];
   let summaryDesc = [];
 
-  // Helper Function for Fabric Math (Kain & Vitrase)
-  // Helper Function for Fabric Math (Kain & Vitrase)
-  function calculateFabric(w, h) {
-    let curtainW = w + 0.10; // Curtain Width for Railing
-    let curtainH = h + 0.15; // UPDATED: Frame + 15cm
-    
-    // Allow horizontal cutting as long as the final height fits within the roll (e.g., 2.80m)
-    let fabricRoll = 2.80; 
+  // Helper Function for Fabric Math (Accepts Dynamic Fullness)
+  function calculateFabric(w, h, fullness) {
+    let curtainW = w + 0.10;
+    let curtainH = h + 0.15; // Frame + 15cm
     let qty = 0;
     
-    if (curtainH <= fabricRoll) {
-      // Horizontal Cutting (Fits inside the roll)
-      // Multiplies the frame width (w) by 2.0 (Biasa) -> 3.65 * 2 = 7.3m
-      qty = w * 2.0; 
+    if (curtainH <= 2.80) {
+      qty = w * fullness; // Uses dropdown fullness (2.0, 2.3, or 1.8)
     } else {
-      // Vertical Cutting (Needs panels)
-      let rawPanels = curtainW / 1.40; // 1.4m effective width
-      let panels = Math.ceil(rawPanels * 2) / 2; // Rounds to nearest 0.5
+      let rawPanels = curtainW / 1.40;
+      let panels = Math.ceil(rawPanels * 2) / 2;
       qty = panels * curtainH; 
     }
-    
     return Math.round(qty * 100) / 100;
   }
 
@@ -86,45 +79,36 @@ function addBOMToCart() {
     let fabricCode = document.getElementById('kainFabric').value;
     let model = document.getElementById('kainModel').value;
     let railCode = document.getElementById('kainRail').value;
+    let fullness = parseFloat(document.getElementById('kainFullness').value);
     if(!fabricCode) return alert("Select Kain Fabric!");
     
-    let baseQty = calculateFabric(frameW, frameH);
+    let baseQty = calculateFabric(frameW, frameH, fullness);
     let fabricObj = globalData.prices.find(p => p.ItemCode === fabricCode);
+    let lType = `Gorden Kain (${model})`;
     
-    // Main Fabric
-    comps.push({ obj: fabricObj, qty: baseQty, desc: `${baseQty} m` });
-    // Tieback (Tali Ikat) -> Same fabric, 0.25m
-    comps.push({ obj: fabricObj, qty: 0.25, desc: `0.25 m`, customName: `Tali Ikat (${fabricObj.ItemName})` });
-    // Jahit
-    comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
-    // Railing
-    if(railCode !== 'none') {
-      comps.push({ obj: globalData.prices.find(p => p.ItemCode === railCode), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
-    }
-    // Plong (9 per meter of base fabric)
-    if(model === 'Plong') {
-      let rings = Math.ceil(baseQty * 9);
-      comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: rings, desc: `${rings} pcs` });
-    }
-    summaryDesc.push(`Gorden ${model}`);
+    comps.push({ layer: lType, obj: fabricObj, qty: baseQty, desc: `${baseQty} m` });
+    comps.push({ layer: lType, obj: fabricObj, qty: 0.25, desc: `0.25 m`, customName: `Tali Ikat (${fabricObj.ItemName})` });
+    comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
+    if(railCode !== 'none') comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === railCode), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    if(model === 'Plong') comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(baseQty * 9), desc: `${Math.ceil(baseQty * 9)} pcs` });
+    
+    summaryDesc.push(`Kain`);
   }
 
   // --- 2. VITRASE LAYER ---
   if (document.getElementById('layerVitrase').checked) {
     let fabricCode = document.getElementById('vitraseFabric').value;
     let railCode = document.getElementById('vitraseRail').value;
+    let fullness = parseFloat(document.getElementById('vitraseFullness').value);
     if(!fabricCode) return alert("Select Vitrase Fabric!");
     
-    let baseQty = calculateFabric(frameW, frameH);
+    let baseQty = calculateFabric(frameW, frameH, fullness);
+    let lType = 'Vitrase';
     
-    // Main Vitrase
-    comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: baseQty, desc: `${baseQty} m` });
-    // Jahit
-    comps.push({ obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
-    // Railing
-    if(railCode !== 'none') {
-      comps.push({ obj: globalData.prices.find(p => p.ItemCode === railCode), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
-    }
+    comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: baseQty, desc: `${baseQty} m` });
+    comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
+    if(railCode !== 'none') comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === railCode), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    
     summaryDesc.push(`Vitrase`);
   }
 
@@ -132,48 +116,46 @@ function addBOMToCart() {
   if (document.getElementById('layerRoller').checked) {
     let fabricCode = document.getElementById('rollerFabric').value;
     if(!fabricCode) return alert("Select Roller Blind!");
-    
-    // Roller blind is calculated per square meter (m2) based on the exact frame sizes you requested
     let area = frameW * frameH;
-    
-    comps.push({ obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: area, desc: `${area.toFixed(2)} m2` });
+    comps.push({ layer: 'Roller Blind', obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: area, desc: `${area.toFixed(2)} m2` });
     summaryDesc.push(`Roller Blind`);
+  }
+  
+  // --- 4. ROMAN SHADE (Placeholder for next step) ---
+  if (document.getElementById('layerRoman').checked) {
+      // Math to be implemented later!
+      summaryDesc.push(`Roman Shade`);
   }
 
   if (comps.length === 0) return alert("Please check at least one layer to add!");
 
-  // Package into Window Object
   let windowObject = {
-    roomId: Date.now(), 
-    roomName: room,
+    roomId: Date.now(), roomName: room,
     ukuran: `L:${frameW}m x T:${frameH}m [${summaryDesc.join(' + ')}]`,
-    w: frameW, h: frameH,
-    components: []
+    w: frameW, h: frameH, components: []
   };
 
   comps.forEach(comp => {
     if (!comp.obj) return; 
-    let sellPrice = comp.obj[tier] * comp.qty;
     windowObject.components.push({
-      itemCode: comp.obj.ItemCode, 
-      itemName: comp.customName || comp.obj.ItemName, // Uses custom name for Tiebacks
-      qtyDesc: comp.desc, 
-      baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
-      subtotalPrice: sellPrice, 
-      supplier: comp.obj.SupplierName
+      layer: comp.layer, // Store the group layer
+      itemCode: comp.obj.ItemCode, itemName: comp.customName || comp.obj.ItemName,
+      qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
+      subtotalPrice: (comp.obj[tier] * comp.qty), supplier: comp.obj.SupplierName
     });
   });
 
   cart.push(windowObject);
   updateCartUI();
   
-  // Reset toggles for next room
-  document.getElementById('layerKain').checked = false;
-  document.getElementById('layerVitrase').checked = false;
-  document.getElementById('layerRoller').checked = false;
+  // Reset Toggles
+  document.querySelectorAll('input[type="checkbox"][id^="layer"]').forEach(cb => cb.checked = false);
   toggleLayers();
 }
 
+// ==========================================
+// RENDER CART WITH LAYER GROUPING
+// ==========================================
 function updateCartUI() {
   const tbody = document.getElementById('cartBody');
   tbody.innerHTML = "";
@@ -182,30 +164,43 @@ function updateCartUI() {
   cart.forEach((windowObj, index) => {
     let roomSubtotal = windowObj.components.reduce((sum, c) => sum + c.subtotalPrice, 0);
     
+    // Main Room Header
     tbody.innerHTML += `
       <tr class="room-header">
-        <td colspan="2"><b>${windowObj.roomName}</b> (${windowObj.ukuran})</td>
+        <td colspan="2"><b style="font-size:16px;">${windowObj.roomName}</b> <span style="color:#555; font-size:12px;">(${windowObj.ukuran})</span></td>
         <td><b>${formatRupiah(roomSubtotal)}</b></td>
         <td><button onclick="removeWindow(${index})" style="background:#e74c3c; padding:5px 10px;">X</button></td>
       </tr>
     `;
     
+    // Group Components by Layer
+    let layers = {};
     windowObj.components.forEach(c => {
-      cartTotals.subTotal += c.subtotalPrice;
-      cartTotals.totalModal += c.baseCostTotal;
-      let displayPrice = c.subtotalPrice === 0 ? '<span style="color:green; font-weight:bold;">Included</span>' : formatRupiah(c.subtotalPrice);
+      if(!layers[c.layer]) layers[c.layer] = [];
+      layers[c.layer].push(c);
+    });
+
+    // Render Each Layer Group
+    Object.keys(layers).forEach(layerName => {
+      tbody.innerHTML += `<tr><td colspan="4" style="background:#f1f2f6; font-size:12px; font-weight:bold; color:#2c3e50; padding:4px 10px;">➔ ${layerName}</td></tr>`;
       
-      tbody.innerHTML += `
-        <tr class="component-row">
-          <td style="padding-left: 20px; color:#555;">- ${c.itemName}</td>
-          <td>${c.qtyDesc}</td>
-          <td>${displayPrice}</td><td></td>
-        </tr>
-      `;
+      layers[layerName].forEach(c => {
+        cartTotals.subTotal += c.subtotalPrice;
+        cartTotals.totalModal += c.baseCostTotal;
+        let displayPrice = c.subtotalPrice === 0 ? '<span style="color:green; font-weight:bold;">Included</span>' : formatRupiah(c.subtotalPrice);
+        
+        tbody.innerHTML += `
+          <tr class="component-row">
+            <td style="padding-left: 20px; color:#555;">- ${c.itemName}</td>
+            <td>${c.qtyDesc}</td>
+            <td>${displayPrice}</td><td></td>
+          </tr>
+        `;
+      });
     });
   });
   
-  // Calculate Discounts
+  // Recalculate Totals
   let distType = document.getElementById('discountType').value;
   let distVal = parseFloat(document.getElementById('discountValue').value) || 0;
   cartTotals.discount = (distType === 'percent') ? (cartTotals.subTotal * (distVal / 100)) : distVal;
@@ -213,6 +208,54 @@ function updateCartUI() {
 
   document.getElementById('displaySubtotal').innerText = formatRupiah(cartTotals.subTotal);
   document.getElementById('displayTotal').innerText = formatRupiah(cartTotals.grandTotal);
+}
+
+// ==========================================
+// PRINTING ENGINE (Grouped by Layer)
+// ==========================================
+function generateDocument(docType) {
+  document.getElementById('printDocType').innerText = (docType === 'Proposal') ? "PROPOSAL PENAWARAN" : "INVOICE / TAGIHAN";
+  document.getElementById('printCustName').innerText = document.getElementById('custName').value;
+  document.getElementById('printCustWA').innerText = document.getElementById('custWA').value;
+  document.getElementById('printCustAddress').innerText = document.getElementById('custAddress').value;
+  document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID');
+  
+  const printBody = document.getElementById('printTableBody');
+  printBody.innerHTML = "";
+  
+  cart.forEach(windowObj => {
+    let roomSubtotal = windowObj.components.reduce((sum, c) => sum + c.subtotalPrice, 0);
+    printBody.innerHTML += `<tr class="room-header"><td colspan="2"><b style="font-size:16px;">${windowObj.roomName}</b> <span style="font-size:12px; font-weight:normal;">(${windowObj.ukuran})</span></td><td style="text-align:right;"><b>${formatRupiah(roomSubtotal)}</b></td></tr>`;
+    
+    let layers = {};
+    windowObj.components.forEach(c => {
+      if(!layers[c.layer]) layers[c.layer] = [];
+      layers[c.layer].push(c);
+    });
+
+    Object.keys(layers).forEach(layerName => {
+      printBody.innerHTML += `<tr><td colspan="3" style="font-size:12px; font-weight:bold; color:#555; padding: 4px 10px; background:#f9f9f9; border-top:1px dashed #ccc;">➔ ${layerName}</td></tr>`;
+      layers[layerName].forEach(c => {
+        let displayPrice = c.subtotalPrice === 0 ? 'Included' : formatRupiah(c.subtotalPrice);
+        printBody.innerHTML += `<tr><td style="padding-left:20px;">- ${c.itemName}</td><td>${c.qtyDesc}</td><td style="text-align:right;">${displayPrice}</td></tr>`;
+      });
+    });
+  });
+
+  document.getElementById('printSubtotal').innerText = formatRupiah(cartTotals.subTotal);
+  document.getElementById('printDiscount').innerText = `- ${formatRupiah(cartTotals.discount)}`;
+  document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
+  
+  const messageArea = document.getElementById('printMessageArea');
+  if (docType === 'Proposal') {
+    let dp50 = cartTotals.grandTotal / 2;
+    messageArea.innerHTML = `<p style="margin:0;"><b>Catatan:</b> Untuk memulai produksi, mohon pembayaran DP 50% sebesar <b>${formatRupiah(dp50)}</b>.</p>`;
+  } else {
+    let paid = parseFloat(document.getElementById('amountPaid').value) || 0;
+    messageArea.innerHTML = `<div style="display:flex; justify-content:space-between; font-size:16px;"><div><b>Telah Dibayar:</b><br>${formatRupiah(paid)}</div><div style="text-align:right;"><b>SISA TAGIHAN:</b><br><span style="font-size:22px;">${formatRupiah(cartTotals.grandTotal - paid)}</span></div></div>`;
+  }
+  
+  window.print();
 }
 
 function removeWindow(index) { cart.splice(index, 1); updateCartUI(); }
@@ -405,53 +448,3 @@ async function deleteOrderPermanently(orderId) {
   }
 }
 
-// ==========================================
-// PRINTING ENGINE (Proposal vs Invoice)
-// ==========================================
-function generateDocument(docType) {
-  document.getElementById('printDocType').innerText = (docType === 'Proposal') ? "PROPOSAL PENAWARAN" : "INVOICE / TAGIHAN";
-  document.getElementById('printCustName').innerText = document.getElementById('custName').value;
-  document.getElementById('printCustWA').innerText = document.getElementById('custWA').value;
-  document.getElementById('printCustAddress').innerText = document.getElementById('custAddress').value;
-  document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID');
-  
-  const printBody = document.getElementById('printTableBody');
-  printBody.innerHTML = "";
-  
-  cart.forEach(windowObj => {
-    let roomSubtotal = windowObj.components.reduce((sum, c) => sum + c.subtotalPrice, 0);
-    printBody.innerHTML += `<tr class="room-header"><td colspan="2"><b>${windowObj.roomName}</b> (${windowObj.ukuran})</td><td style="text-align:right;"><b>${formatRupiah(roomSubtotal)}</b></td></tr>`;
-    windowObj.components.forEach(c => {
-      let displayPrice = c.subtotalPrice === 0 ? 'Included' : formatRupiah(c.subtotalPrice);
-      printBody.innerHTML += `<tr><td style="padding-left:20px;">- ${c.itemName}</td><td>${c.qtyDesc}</td><td style="text-align:right;">${displayPrice}</td></tr>`;
-    });
-  });
-
-  document.getElementById('printSubtotal').innerText = formatRupiah(cartTotals.subTotal);
-  document.getElementById('printDiscount').innerText = `- ${formatRupiah(cartTotals.discount)}`;
-  document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
-  
-  const messageArea = document.getElementById('printMessageArea');
-  if (docType === 'Proposal') {
-    let dp50 = cartTotals.grandTotal / 2;
-    messageArea.innerHTML = `
-      <p style="margin:0; font-size: 16px;"><b>Catatan Proposal:</b></p>
-      <ul style="margin:5px 0 0 0; font-size:14px;">
-        <li>Harga pada proposal ini berlaku selama 7 hari.</li>
-        <li>Untuk memulai proses produksi, mohon lakukan pembayaran <b>DP 50% sebesar ${formatRupiah(dp50)}</b>.</li>
-        <li>Pembayaran dapat ditransfer ke BCA 7880xxxxx a/n Luxe Gorden.</li>
-      </ul>
-    `;
-  } else {
-    let paid = parseFloat(document.getElementById('amountPaid').value) || 0;
-    let sisa = cartTotals.grandTotal - paid;
-    messageArea.innerHTML = `
-      <div style="display:flex; justify-content:space-between; font-size: 16px;">
-        <div><b>Telah Dibayar (DP):</b><br>${formatRupiah(paid)}</div>
-        <div style="text-align:right;"><b>SISA TAGIHAN:</b><br><span style="font-size:22px; color:#e74c3c;">${formatRupiah(sisa)}</span></div>
-      </div>
-    `;
-  }
-  
-  window.print();
-}
