@@ -618,13 +618,15 @@ async function savePayable(payableId) {
 // PRINTING ENGINE (A4 FIT & RICH DETAILS)
 // ==========================================
 function generateDocument(docType) {
-  // 1. Ambil Pengaturan dari Database (jika ada)
-  let phoneSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Company_Phone' || s.Key === 'Phone_WA');
-  document.getElementById('printCompanyPhone').innerText = phoneSetting ? phoneSetting.Value : '081350001695';
+  // 1. AMBIL PENGATURAN DARI DATABASE SPREADSHEET
+  let phoneSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Company_Phone');
+  let companyPhone = phoneSetting ? phoneSetting.Value : '081350001695';
+  document.getElementById('printCompanyPhone').innerText = companyPhone;
 
   let bankSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Bank_Account');
+  let companyBank = bankSetting ? bankSetting.Value : 'BCA 7880231817 a/n Celina Athalia Kosasih';
   let bankEl = document.getElementById('printBankAccount');
-  if (bankEl) bankEl.innerText = bankSetting ? bankSetting.Value : 'BCA 7880231817 a/n Celina Athalia Kosasih';
+  if (bankEl) bankEl.innerText = companyBank;
 
   // 2. Set Header & Detail Invoice
   const isProposal = (docType === 'Proposal');
