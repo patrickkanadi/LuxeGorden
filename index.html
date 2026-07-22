@@ -58,7 +58,9 @@
     <button class="tab-link active" onclick="switchTab('tab-pos')">1. Order & POS</button>
     <button class="tab-link" onclick="switchTab('tab-crm')">2. CRM & History</button>
     <button class="tab-link" onclick="renderPiutang(); switchTab('tab-piutang')">3. Piutang (A/R)</button>
-    <button class="tab-link" onclick="promptAdminAccess()" style="color:#e74c3c; margin-left:auto;">🔒 Admin Area</button>
+    
+    <button class="tab-link" id="btnAdmin" onclick="promptAdminAccess()" style="color:#e74c3c; margin-left:auto;">🔒 Admin Area</button>
+    <button class="tab-link" id="btnLogout" onclick="logoutAdmin()" style="display:none; color:#e74c3c; margin-left:auto;">🔓 Logout Admin</button>
   </div>
 
   <div id="sysStatus">Connecting to Database...</div>
@@ -239,19 +241,33 @@
     </div>
 
     <div id="tab-analysis" class="tab-content card">
-      <h2>Order Analysis & COGS (Modal)</h2>
-      <table style="font-size: 12px;">
-        <thead><tr><th>Order ID</th><th>Date</th><th>Grand Total</th><th>Total Modal (COGS)</th><th>Net Profit</th><th>Margin %</th></tr></thead>
-        <tbody id="analysisBody"></tbody>
-      </table>
-    </div>
+      <h2>Order Analysis & PnL</h2>
+      
+      <div class="grid-2" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+        <input type="text" id="analysisSearch" placeholder="Search Customer or Order ID..." oninput="renderAnalysis()">
+        <select id="analysisSort" onchange="renderAnalysis()">
+          <option value="date_desc">Sort: Date (Newest First)</option>
+          <option value="date_asc">Sort: Date (Oldest First)</option>
+          <option value="pnl_desc">Sort: PnL (Highest Profit First)</option>
+          <option value="pnl_asc">Sort: PnL (Lowest Profit First)</option>
+        </select>
+      </div>
 
-    <div id="tab-payables" class="tab-content card">
-      <h2>Account Payables (Hutang Supplier)</h2>
-      <p style="font-weight:bold; color:#e74c3c; font-size: 18px;">Total Outstanding Hutang: <span id="totalHutang">Rp 0</span></p>
-      <table style="font-size: 12px;">
-        <thead><tr><th>Payable ID</th><th>Date</th><th>Supplier</th><th>Order ID</th><th>Amount Due</th><th>Amount Paid</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody id="payablesBody"></tbody>
+      <table style="font-size: 12px; text-align: center;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Order / Date</th>
+            <th style="text-align:left;">Customer</th>
+            <th>Items Count</th>
+            <th>Supplier Cost</th>
+            <th>Supplier Paid</th>
+            <th>Supp Status</th>
+            <th>Cust Paid</th>
+            <th>Cust Status</th>
+            <th>PnL (Net)</th>
+          </tr>
+        </thead>
+        <tbody id="analysisBody"></tbody>
       </table>
     </div>
   </div>
