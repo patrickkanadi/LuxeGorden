@@ -80,9 +80,6 @@ function promptAdminAccess() {
       document.getElementById('btnPayablesTab').style.display = 'inline-block';
       document.getElementById('btnSettingsTab').style.display = 'inline-block';
     }
-      document.getElementById('btnAnalysisTab').style.display = 'inline-block';
-      document.getElementById('btnPayablesTab').style.display = 'inline-block';
-    }
     
     renderAnalysis();
     renderPayables();
