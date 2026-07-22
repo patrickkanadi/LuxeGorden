@@ -108,7 +108,8 @@
           <label><input type="checkbox" id="layerCuci" onchange="toggleLayers()"> 🧼 Jasa Cuci</label>
         </div>
 
-        <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
+        <div class="grid-2">
+          <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Gorden Kain</h4>
             <div class="grid-2">
               <div class="form-group"><label>Fabric</label><select id="kainFabric"><option value="">-- Kain --</option></select></div>
@@ -132,7 +133,7 @@
               <div class="form-group"><label>Railing</label><select id="kainRail"><option value="A-REL">Normal Railing</option><option value="A-STICK">Stick Railing</option><option value="none">No Railing</option></select></div>
             </div>
           </div>
-
+          
           <div id="configVitrase" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Vitrase</h4>
             <div class="grid-2">
@@ -293,6 +294,15 @@
           </tr>
         </thead>
         <tbody id="analysisBody"></tbody>
+      </table>
+    </div>
+
+    <div id="tab-payables" class="tab-content card">
+      <h2>Account Payables (Hutang Supplier)</h2>
+      <p style="font-weight:bold; color:#e74c3c; font-size: 18px;">Total Outstanding Hutang: <span id="totalHutang">Rp 0</span></p>
+      <table style="font-size: 12px;">
+        <thead><tr><th>Payable ID</th><th>Date</th><th>Supplier</th><th>Order ID</th><th>Amount Due</th><th>Amount Paid</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="payablesBody"></tbody>
       </table>
     </div>
   </div>
