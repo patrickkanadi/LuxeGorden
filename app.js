@@ -60,30 +60,42 @@ function promptAdminAccess() {
   const pin = prompt("Enter Master PIN:");
   if (pin === null || pin === "") return; // Stop if user clicks Cancel
   
-  // Find PIN in globalData.settings (defaults to "8888" if missing)
   const pinSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Master_PIN');
   const masterPin = pinSetting ? pinSetting.Value.toString() : "8888";
 
   if (pin === masterPin) { 
-    renderAnalysis();
-    renderPayables();
+    // Swap Navbar Buttons
+    document.getElementById('btnAdmin').style.display = 'none';
+    document.getElementById('btnLogout').style.display = 'block';
     
-    // Safely add dynamic buttons WITHOUT breaking the existing navbar
+    // Safely add dynamic buttons
     if(!document.getElementById('btnAnalysisTab')) {
       document.querySelector('.navbar').insertAdjacentHTML('beforeend', 
-        `<button id="btnAnalysisTab" class="tab-link" onclick="switchTab('tab-analysis')">📊 Analysis</button>
-         <button id="btnPayablesTab" class="tab-link" onclick="switchTab('tab-payables')">💸 Payables</button>`
+        `<button id="btnAnalysisTab" class="tab-link" onclick="renderAnalysis(); switchTab('tab-analysis')">📊 Analysis</button>
+         <button id="btnPayablesTab" class="tab-link" onclick="renderPayables(); switchTab('tab-payables')">💸 Payables</button>`
       );
+    } else {
+      document.getElementById('btnAnalysisTab').style.display = 'inline-block';
+      document.getElementById('btnPayablesTab').style.display = 'inline-block';
     }
     
-    // Switch to Analysis tab programmatically
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-analysis').classList.add('active');
-    document.getElementById('btnAnalysisTab').classList.add('active');
+    renderAnalysis();
+    renderPayables();
+    switchTab('tab-analysis');
   } else {
     alert("Incorrect PIN.");
   }
+}
+
+// NEW FUNCTION TO LOGOUT
+function logoutAdmin() {
+  document.getElementById('btnAdmin').style.display = 'block';
+  document.getElementById('btnLogout').style.display = 'none';
+  if(document.getElementById('btnAnalysisTab')) {
+    document.getElementById('btnAnalysisTab').style.display = 'none';
+    document.getElementById('btnPayablesTab').style.display = 'none';
+  }
+  switchTab('tab-pos'); // Kick them back to the POS screen
 }
 
 // ==========================================
@@ -421,31 +433,29 @@ async function deleteOrderPermanently(orderId) {
 // ==========================================
 function renderPiutang() {
   const tbody = document.getElementById('piutangBody');
+  if (!tbody) return; // Fallback safeguard
   tbody.innerHTML = "";
   
-  const searchText = (document.getElementById('piutangSearch').value || "").toLowerCase();
-  const sortType = document.getElementById('piutangSort').value;
+  const searchEl = document.getElementById('piutangSearch');
+  const sortEl = document.getElementById('piutangSort');
+  const searchText = searchEl ? searchEl.value.toLowerCase() : "";
+  const sortType = sortEl ? sortEl.value : "date_desc";
 
-  // 1. Filter: Only get unpaid orders
-  let unpaidOrders = globalData.orders.filter(o => o.Status !== 'Lunas' && o.AmountPaid < o.GrandTotal && o.GrandTotal > 0);
+  // Filter: Only get unpaid orders
+  let unpaidOrders = (globalData.orders || []).filter(o => o.Status !== 'Lunas' && o.AmountPaid < o.GrandTotal && o.GrandTotal > 0);
   
-  // 2. Map customer names & remaining debt to the object for easy sorting/searching
+  // Map extra details for sorting
   unpaidOrders = unpaidOrders.map(o => {
-    let cust = globalData.customers.find(c => c.CustomerID === o.CustomerID);
+    let cust = (globalData.customers || []).find(c => c.CustomerID === o.CustomerID);
     o.customerName = cust ? cust.Name : 'Unknown';
     o.sisaTagihan = o.GrandTotal - o.AmountPaid;
     return o;
   });
 
-  // 3. Apply Search Filter
   if (searchText) {
-    unpaidOrders = unpaidOrders.filter(o => 
-      o.customerName.toLowerCase().includes(searchText) || 
-      o.OrderID.toLowerCase().includes(searchText)
-    );
+    unpaidOrders = unpaidOrders.filter(o => o.customerName.toLowerCase().includes(searchText) || o.OrderID.toLowerCase().includes(searchText));
   }
 
-  // 4. Apply Sort
   unpaidOrders.sort((a, b) => {
     if (sortType === 'date_desc') return new Date(b.Date) - new Date(a.Date);
     if (sortType === 'date_asc') return new Date(a.Date) - new Date(b.Date);
@@ -454,7 +464,6 @@ function renderPiutang() {
     return 0;
   });
   
-  // 5. Render
   unpaidOrders.forEach(o => {
     tbody.innerHTML += `<tr>
       <td>${o.OrderID}</td><td>${new Date(o.Date).toLocaleDateString()}</td>
@@ -462,30 +471,66 @@ function renderPiutang() {
       <td>${formatRupiah(o.AmountPaid)}</td><td style="color:#e74c3c; font-weight:bold;">${formatRupiah(o.sisaTagihan)}</td>
       <td><button onclick="switchTab('tab-crm'); document.getElementById('crmSearch').value='${o.customerName}'; renderCustomerList();" style="background:#f39c12; padding:5px;">View in CRM</button></td>
     </tr>`;
-    let custName = cust ? cust.Name : 'Unknown';
-    let sisa = o.GrandTotal - o.AmountPaid;
-    
-    tbody.innerHTML += `<tr>
-      <td>${o.OrderID}</td><td>${new Date(o.Date).toLocaleDateString()}</td>
-      <td>${custName}</td><td>${formatRupiah(o.GrandTotal)}</td>
-      <td>${formatRupiah(o.AmountPaid)}</td><td style="color:#e74c3c; font-weight:bold;">${formatRupiah(sisa)}</td>
-      <td><button onclick="switchTab('tab-crm'); document.getElementById('crmSearch').value='${custName}'; renderCustomerList();" style="background:#f39c12; padding:5px;">View in CRM</button></td>
-    </tr>`;
   });
 }
 
 function renderAnalysis() {
   const tbody = document.getElementById('analysisBody');
+  if(!tbody) return;
   tbody.innerHTML = "";
-  let sortedOrders = [...globalData.orders].sort((a,b) => new Date(b.Date) - new Date(a.Date)); // Newest first
   
-  sortedOrders.forEach(o => {
-    let margin = o.GrandTotal > 0 ? ((o.NetProfit / o.GrandTotal) * 100).toFixed(1) : 0;
+  const searchEl = document.getElementById('analysisSearch');
+  const sortEl = document.getElementById('analysisSort');
+  const searchText = searchEl ? searchEl.value.toLowerCase() : "";
+  const sortType = sortEl ? sortEl.value : "date_desc";
+
+  let analysisData = (globalData.orders || []).map(o => {
+    let cust = (globalData.customers || []).find(c => c.CustomerID === o.CustomerID);
+    o.customerName = cust ? cust.Name : 'Unknown';
+    
+    // Items Count (Count distinct rows in Order_Details)
+    let items = (globalData.orderDetails || []).filter(d => d.OrderID === o.OrderID);
+    o.itemsCount = items.length; 
+    
+    // Supplier Math (Check payables for this order)
+    let orderPayables = (globalData.payables || []).filter(p => p.OrderID === o.OrderID);
+    o.supplierCost = orderPayables.reduce((sum, p) => sum + p.AmountDue, 0);
+    o.supplierPaid = orderPayables.reduce((sum, p) => sum + p.AmountPaid, 0);
+    
+    // Status Logic
+    if (o.supplierCost === 0) o.supplierStatus = "<span style='color:#777'>No Cost</span>";
+    else if (o.supplierPaid >= o.supplierCost) o.supplierStatus = "<span style='color:green; font-weight:bold;'>Paid</span>";
+    else o.supplierStatus = "<span style='color:red; font-weight:bold;'>Unpaid</span>";
+    
+    let custStatusColor = o.Status === 'Lunas' ? 'green' : (o.Status === 'DP' ? 'orange' : 'red');
+    o.custStatusFormatted = `<span style='color:${custStatusColor}; font-weight:bold;'>${o.Status}</span>`;
+
+    return o;
+  });
+
+  if (searchText) {
+    analysisData = analysisData.filter(o => o.customerName.toLowerCase().includes(searchText) || o.OrderID.toLowerCase().includes(searchText));
+  }
+
+  analysisData.sort((a, b) => {
+    if (sortType === 'date_desc') return new Date(b.Date) - new Date(a.Date);
+    if (sortType === 'date_asc') return new Date(a.Date) - new Date(b.Date);
+    if (sortType === 'pnl_desc') return b.NetProfit - a.NetProfit;
+    if (sortType === 'pnl_asc') return a.NetProfit - b.NetProfit;
+    return 0;
+  });
+  
+  analysisData.forEach(o => {
     tbody.innerHTML += `<tr>
-      <td>${o.OrderID}</td><td>${new Date(o.Date).toLocaleDateString()}</td>
-      <td>${formatRupiah(o.GrandTotal)}</td><td>${formatRupiah(o.TotalModal_COGS)}</td>
-      <td style="color:green; font-weight:bold;">${formatRupiah(o.NetProfit)}</td>
-      <td>${margin}%</td>
+      <td style="text-align:left;"><b>${o.OrderID}</b><br><span style="color:#777;">${new Date(o.Date).toLocaleDateString()}</span></td>
+      <td style="text-align:left;">${o.customerName}</td>
+      <td>${o.itemsCount} Items</td>
+      <td>${formatRupiah(o.supplierCost)}</td>
+      <td>${formatRupiah(o.supplierPaid)}</td>
+      <td>${o.supplierStatus}</td>
+      <td>${formatRupiah(o.AmountPaid)}</td>
+      <td>${o.custStatusFormatted}</td>
+      <td style="color:green; font-weight:bold; font-size:14px;">${formatRupiah(o.NetProfit)}</td>
     </tr>`;
   });
 }
