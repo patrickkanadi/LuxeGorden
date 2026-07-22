@@ -10,15 +10,29 @@ window.onload = async function() {
     const response = await fetch(`${API_URL}?action=getAll`);
     globalData = await response.json();
     
-    // Fill distinct dropdowns based on category
     const kainSel = document.getElementById('kainFabric');
     const vitraseSel = document.getElementById('vitraseFabric');
     const rollerSel = document.getElementById('rollerFabric');
     
+    // New Roman Selectors
+    const romanFabSel = document.getElementById('romanFabric');
+    const romanLinSel = document.getElementById('romanLining');
+    const romanMechSel = document.getElementById('romanMech');
+    const romanLabSel = document.getElementById('romanLabor');
+    
     globalData.prices.forEach(p => {
-      if(p.Category === 'Fabric') kainSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
-      if(p.Category === 'Vitrase' || p.Category === 'Fabric') vitraseSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      if(p.Category === 'Fabric') {
+        kainSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+        vitraseSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+        romanFabSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      }
+      if(p.Category === 'Vitrase') vitraseSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
       if(p.Category === 'Roller') rollerSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      
+      // Look for specific Roman parts (Requires them to be in your Database!)
+      if(p.ItemCode.includes('FURING')) romanLinSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      if(p.ItemCode.includes('ROMAN-MECH')) romanMechSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
+      if(p.ItemCode.includes('ROMAN-JAHIT')) romanLabSel.innerHTML += `<option value="${p.ItemCode}">${p.ItemName}</option>`;
     });
 
     renderCustomerList();
@@ -116,15 +130,58 @@ function addBOMToCart() {
   if (document.getElementById('layerRoller').checked) {
     let fabricCode = document.getElementById('rollerFabric').value;
     if(!fabricCode) return alert("Select Roller Blind!");
-    let area = frameW * frameH;
+    
+    // Rule: Area is Width x Height, but MINIMUM is 1.0 m2
+    let area = Math.max((frameW * frameH), 1.0);
+    
     comps.push({ layer: 'Roller Blind', obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: area, desc: `${area.toFixed(2)} m2` });
     summaryDesc.push(`Roller Blind`);
   }
   
-  // --- 4. ROMAN SHADE (Placeholder for next step) ---
+  // --- 4. ROMAN SHADE LAYER ---
   if (document.getElementById('layerRoman').checked) {
-      // Math to be implemented later!
-      summaryDesc.push(`Roman Shade`);
+    let fabricCode = document.getElementById('romanFabric').value;
+    let mechCode = document.getElementById('romanMech').value;
+    let laborCode = document.getElementById('romanLabor').value;
+    let incLining = document.getElementById('incRomanLining').checked;
+    let liningCode = document.getElementById('romanLining').value;
+
+    if(!fabricCode || !mechCode || !laborCode || (incLining && !liningCode)) return alert("Please complete all Roman Shade dropdowns!");
+
+    // Rule: Frame + 25cm for Width and Height
+    let rWidth = frameW + 0.25;
+    let rHeight = frameH + 0.25;
+    let rArea = rWidth * rHeight; // Used for Labor (m2)
+    
+    let fabricQty = 0;
+    let maxHoriz = 2.80 - 0.15; // 2.65m max height for horizontal
+
+    // Flat Fabric Logic (No 2.0x multiplier)
+    if (rHeight <= maxHoriz) {
+      fabricQty = rWidth; // Horizontal cut
+    } else {
+      let panels = Math.ceil((rWidth / 1.40) * 2) / 2;
+      fabricQty = panels * rHeight; // Vertical cut
+    }
+    fabricQty = Math.round(fabricQty * 100) / 100;
+
+    let lType = 'Roman Shade';
+
+    // 1. Main Fabric (m)
+    comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === fabricCode), qty: fabricQty, desc: `${fabricQty} m` });
+
+    // 2. Lining Fabric (m) (Optional)
+    if (incLining) {
+      comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === liningCode), qty: fabricQty, desc: `${fabricQty} m`, customName: `Furing / Lining` });
+    }
+
+    // 3. Roman Mechanism (m of Width)
+    comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === mechCode), qty: rWidth, desc: `${rWidth.toFixed(2)} m` });
+
+    // 4. Sewing Labor (m2 of Area)
+    comps.push({ layer: lType, obj: globalData.prices.find(p => p.ItemCode === laborCode), qty: rArea, desc: `${rArea.toFixed(2)} m2` });
+
+    summaryDesc.push(`Roman Shade`);
   }
 
   if (comps.length === 0) return alert("Please check at least one layer to add!");
