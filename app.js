@@ -58,19 +58,26 @@ function addBOMToCart() {
   let summaryDesc = [];
 
   // Helper Function for Fabric Math (Kain & Vitrase)
+  // Helper Function for Fabric Math (Kain & Vitrase)
   function calculateFabric(w, h) {
-    let curtainW = w + 0.10;
-    let curtainH = h + 0.15;
-    let maxHoriz = 2.80 - 0.15; // 2.65m
+    let curtainW = w + 0.10; // Curtain Width for Railing
+    let curtainH = h + 0.15; // UPDATED: Frame + 15cm
+    
+    // Allow horizontal cutting as long as the final height fits within the roll (e.g., 2.80m)
+    let fabricRoll = 2.80; 
     let qty = 0;
     
-    if (curtainH <= maxHoriz) {
-      qty = curtainW * 2.0; // Horizontal Biasa
+    if (curtainH <= fabricRoll) {
+      // Horizontal Cutting (Fits inside the roll)
+      // Multiplies the frame width (w) by 2.0 (Biasa) -> 3.65 * 2 = 7.3m
+      qty = w * 2.0; 
     } else {
-      let rawPanels = curtainW / 1.40;
-      let panels = Math.ceil(rawPanels * 2) / 2;
-      qty = panels * curtainH; // Vertical Panels
+      // Vertical Cutting (Needs panels)
+      let rawPanels = curtainW / 1.40; // 1.4m effective width
+      let panels = Math.ceil(rawPanels * 2) / 2; // Rounds to nearest 0.5
+      qty = panels * curtainH; 
     }
+    
     return Math.round(qty * 100) / 100;
   }
 
