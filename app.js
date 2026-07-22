@@ -122,7 +122,7 @@ function addBOMToCart() {
 
   function calculateFabric(w, h, fullness) {
     let curtainW = w + 0.10;
-    let curtainH = h + 0.15; 
+    let curtainH = h + 0.25; // Reverted to +25cm allowance
     let qty = (curtainH <= 2.80) ? (w * fullness) : (Math.ceil((curtainW / 1.40) * 2) / 2) * curtainH;
     return Number(qty.toFixed(1));
   }
