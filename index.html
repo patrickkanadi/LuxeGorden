@@ -136,7 +136,19 @@
       
           <div id="configRoman" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Roman Shade</h4>
-            <div class="form-group"><label>Fabric</label><select id="romanFabric"><option value="">-- Select Fabric --</option></select></div>
+            <div class="form-group"><label>Main Fabric</label><select id="romanFabric"><option value="">-- Select Fabric --</option></select></div>
+            
+            <div class="form-group" style="background: #eee; padding: 10px; border-radius: 5px;">
+              <label><input type="checkbox" id="incRomanLining" onchange="document.getElementById('romanLiningDiv').style.display = this.checked ? 'block' : 'none'"> Include Lining (Furing)</label>
+              <div id="romanLiningDiv" style="display:none; margin-top: 10px;">
+                <select id="romanLining"><option value="">-- Select Lining Fabric --</option></select>
+              </div>
+            </div>
+      
+            <div class="grid-2">
+              <div class="form-group"><label>Mechanism Rail</label><select id="romanMech"><option value="">-- Mechanism --</option></select></div>
+              <div class="form-group"><label>Sewing Labor</label><select id="romanLabor"><option value="">-- Labor --</option></select></div>
+            </div>
           </div>
         </div>
       
