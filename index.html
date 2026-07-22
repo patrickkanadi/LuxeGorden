@@ -95,6 +95,19 @@
     <button class="tab-link" id="btnLogout" onclick="logoutAdmin()" style="display:none; color:#e74c3c; margin-left:auto;">🔓 Logout Admin</button>
   </div>
 
+  <div id="tab-settings" class="tab-content card">
+      <h2>⚙️ System Settings</h2>
+      <div class="grid-2">
+        <div class="form-group"><label>Master PIN</label><input type="password" id="setPin"></div>
+        <div class="form-group"><label>Company Phone / WA (Invoice Header)</label><input type="text" id="setPhone"></div>
+      </div>
+      <div class="form-group">
+        <label>Bank Account (Rekening Pembayaran di Invoice)</label>
+        <input type="text" id="setBank" placeholder="e.g. BCA 12345678 a/n Nama Anda">
+      </div>
+      <button class="btn-save" onclick="saveSettings()" style="width:auto; padding: 10px 20px;">💾 Save Settings</button>
+    </div>
+
   <div id="sysStatus">Connecting to Database...</div>
 
   <div class="container">
@@ -389,7 +402,7 @@
       <div>
         <div class="payment-bank-card">
           <div style="font-weight: bold; margin-bottom: 2px;">Pembayaran Kepada:</div>
-          <strong>BCA 7880231817 a/n Celina Athalia Kosasih</strong>
+          <strong id="printBankAccount">BCA 7880231817 a/n Celina Athalia Kosasih</strong>
           <div style="margin-top: 4px; font-style: italic; color: #2c3e50;">
             Terima kasih atas pembelian dan kepercayaan Anda terhadap kami.
           </div>
