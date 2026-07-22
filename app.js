@@ -72,9 +72,14 @@ function promptAdminAccess() {
     if(!document.getElementById('btnAnalysisTab')) {
       document.querySelector('.navbar').insertAdjacentHTML('beforeend', 
         `<button id="btnAnalysisTab" class="tab-link" onclick="renderAnalysis(); switchTab('tab-analysis')">📊 Analysis</button>
-         <button id="btnPayablesTab" class="tab-link" onclick="renderPayables(); switchTab('tab-payables')">💸 Payables</button>`
+         <button id="btnPayablesTab" class="tab-link" onclick="renderPayables(); switchTab('tab-payables')">💸 Payables</button>
+         <button id="btnSettingsTab" class="tab-link" onclick="renderSettings(); switchTab('tab-settings')">⚙️ Settings</button>`
       );
     } else {
+      document.getElementById('btnAnalysisTab').style.display = 'inline-block';
+      document.getElementById('btnPayablesTab').style.display = 'inline-block';
+      document.getElementById('btnSettingsTab').style.display = 'inline-block';
+    }
       document.getElementById('btnAnalysisTab').style.display = 'inline-block';
       document.getElementById('btnPayablesTab').style.display = 'inline-block';
     }
@@ -96,6 +101,36 @@ function logoutAdmin() {
     document.getElementById('btnPayablesTab').style.display = 'none';
   }
   switchTab('tab-pos'); // Kick them back to the POS screen
+}
+
+// ==========================================
+// SETTINGS LOGIC
+// ==========================================
+function renderSettings() {
+  const getVal = (key, def) => {
+    let s = globalData.settings && globalData.settings.find(x => x.Key === key);
+    return s ? s.Value : def;
+  };
+  
+  document.getElementById('setPin').value = getVal('Master_PIN', '8888');
+  document.getElementById('setPhone').value = getVal('Company_Phone', '081350001695');
+  document.getElementById('setBank').value = getVal('Bank_Account', 'BCA 7880231817 a/n Celina Athalia Kosasih');
+}
+
+async function saveSettings() {
+  const payload = [
+    { key: 'Master_PIN', value: document.getElementById('setPin').value },
+    { key: 'Company_Phone', value: document.getElementById('setPhone').value },
+    { key: 'Bank_Account', value: document.getElementById('setBank').value }
+  ];
+  
+  try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateSettings", payload: payload }) });
+    alert("System Settings Saved Successfully!"); 
+    location.reload(); // Reload to apply new settings to globalData
+  } catch(e) { 
+    alert("Error saving settings!"); 
+  }
 }
 
 // ==========================================
@@ -579,33 +614,99 @@ async function savePayable(payableId) {
   alert("Payable Updated!"); location.reload();
 }
 
+// ==========================================
+// PRINTING ENGINE (A4 FIT & RICH DETAILS)
+// ==========================================
 function generateDocument(docType) {
-  document.getElementById('printDocType').innerText = (docType === 'Proposal') ? "PROPOSAL PENAWARAN" : "INVOICE / TAGIHAN";
-  document.getElementById('printCustName').innerText = document.getElementById('custName').value; document.getElementById('printCustWA').innerText = document.getElementById('custWA').value; document.getElementById('printCustAddress').innerText = document.getElementById('custAddress').value; document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID');
-  
-  const printBody = document.getElementById('printTableBody'); printBody.innerHTML = "";
+  // 1. Ambil Pengaturan dari Database (jika ada)
+  let phoneSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Company_Phone' || s.Key === 'Phone_WA');
+  document.getElementById('printCompanyPhone').innerText = phoneSetting ? phoneSetting.Value : '081350001695';
+
+  let bankSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Bank_Account');
+  let bankEl = document.getElementById('printBankAccount');
+  if (bankEl) bankEl.innerText = bankSetting ? bankSetting.Value : 'BCA 7880231817 a/n Celina Athalia Kosasih';
+
+  // 2. Set Header & Detail Invoice
+  const isProposal = (docType === 'Proposal');
+  document.getElementById('printDocType').innerText = isProposal ? "PROPOSAL PENAWARAN" : "INVOICE / TAGIHAN";
+  document.getElementById('printDocStatus').innerText = isProposal ? "PENAWARAN RESMI" : "INVOICE RESMI";
+  document.getElementById('printDocStatus').style.color = isProposal ? "#2980b9" : "#27ae60";
+
+  const orderIdInput = document.getElementById('currentOrderId').value;
+  document.getElementById('printOrderId').innerText = orderIdInput || ("ORD-" + new Date().getTime().toString().slice(6));
+  document.getElementById('printDate').innerText = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // 3. Detail Pelanggan
+  document.getElementById('printCustName').innerText = document.getElementById('custName').value || "Pelanggan Umum";
+  document.getElementById('printCustWA').innerText = document.getElementById('custWA').value ? ("WA: " + document.getElementById('custWA').value) : "-";
+  document.getElementById('printCustAddress').innerText = document.getElementById('custAddress').value || "-";
+
+  // 4. Render Tabel Item
+  const printBody = document.getElementById('printTableBody');
+  printBody.innerHTML = "";
+
   cart.forEach(windowObj => {
     let roomSubtotal = windowObj.components.reduce((sum, c) => sum + c.subtotalPrice, 0);
-    printBody.innerHTML += `<tr class="room-header"><td colspan="2"><b style="font-size:16px;">${windowObj.roomName}</b> <span style="font-size:12px; font-weight:normal;">(${windowObj.ukuran})</span></td><td style="text-align:right;"><b>${formatRupiah(roomSubtotal)}</b></td></tr>`;
+    
+    // Header Ruangan
+    printBody.innerHTML += `
+      <tr class="print-room-row">
+        <td colspan="2"><b>${windowObj.roomName}</b> <span style="font-size:9.5px; font-weight:normal; color:#555;">(${windowObj.ukuran})</span></td>
+        <td style="text-align:right;"><b>${formatRupiah(roomSubtotal)}</b></td>
+      </tr>`;
+    
+    // Kelompokkan Komponen Berdasarkan Layer
     let layers = {};
-    windowObj.components.forEach(c => { if(!layers[c.layer]) layers[c.layer] = []; layers[c.layer].push(c); });
+    windowObj.components.forEach(c => {
+      if (!layers[c.layer]) layers[c.layer] = [];
+      layers[c.layer].push(c);
+    });
+
     Object.keys(layers).forEach(layerName => {
-      printBody.innerHTML += `<tr><td colspan="3" style="font-size:12px; font-weight:bold; color:#555; padding: 4px 10px; background:#f9f9f9; border-top:1px dashed #ccc;">➔ ${layerName}</td></tr>`;
+      printBody.innerHTML += `
+        <tr>
+          <td colspan="3" style="font-size:9.5px; font-weight:bold; color:#34495e; padding: 3px 8px; background:#f8f9fa;">➔ ${layerName}</td>
+        </tr>`;
+      
       layers[layerName].forEach(c => {
-        let displayPrice = c.subtotalPrice === 0 ? 'Included' : formatRupiah(c.subtotalPrice);
-        printBody.innerHTML += `<tr><td style="padding-left:20px;">- ${c.itemName}</td><td>${c.qtyDesc}</td><td style="text-align:right;">${displayPrice}</td></tr>`;
+        let displayPrice = (c.subtotalPrice === 0) ? '<i>Included</i>' : formatRupiah(c.subtotalPrice);
+        printBody.innerHTML += `
+          <tr>
+            <td style="padding-left:18px; color:#444;">- ${c.itemName}</td>
+            <td>${c.qtyDesc}</td>
+            <td style="text-align:right;">${displayPrice}</td>
+          </tr>`;
       });
     });
   });
 
-  document.getElementById('printSubtotal').innerText = formatRupiah(cartTotals.subTotal); document.getElementById('printDiscount').innerText = `- ${formatRupiah(cartTotals.discount)}`; document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
-  
-  const messageArea = document.getElementById('printMessageArea');
-  if (docType === 'Proposal') {
-    messageArea.innerHTML = `<p style="margin:0;"><b>Catatan:</b> Untuk memulai produksi, mohon pembayaran DP 50% sebesar <b>${formatRupiah(cartTotals.grandTotal / 2)}</b>.</p>`;
+  // 5. Total & Rincian Pembayaran
+  document.getElementById('printSubtotal').innerText = formatRupiah(cartTotals.subTotal);
+  document.getElementById('printDiscount').innerText = `- ${formatRupiah(cartTotals.discount)}`;
+  document.getElementById('printGrandTotal').innerText = formatRupiah(cartTotals.grandTotal);
+
+  const paymentBreakdown = document.getElementById('printPaymentBreakdown');
+  if (isProposal) {
+    let dp50 = cartTotals.grandTotal / 2;
+    paymentBreakdown.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span><strong>Syarat Ketentuan DP (50%):</strong></span>
+        <strong style="color:#27ae60; font-size:11px;">${formatRupiah(dp50)}</strong>
+      </div>`;
   } else {
     let paid = parseFloat(document.getElementById('amountPaid').value) || 0;
-    messageArea.innerHTML = `<div style="display:flex; justify-content:space-between; font-size:16px;"><div><b>Telah Dibayar:</b><br>${formatRupiah(paid)}</div><div style="text-align:right;"><b>SISA TAGIHAN:</b><br><span style="font-size:22px;">${formatRupiah(cartTotals.grandTotal - paid)}</span></div></div>`;
+    let sisa = cartTotals.grandTotal - paid;
+    paymentBreakdown.innerHTML = `
+      <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+        <span>Telah Dibayar (DP/Pelunasan):</span>
+        <strong>${formatRupiah(paid)}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; border-top:1px solid #ddd; padding-top:2px;">
+        <span style="font-weight:bold; color:${sisa > 0 ? '#e74c3c' : '#27ae60'};">Sisa Tagihan:</span>
+        <strong style="font-size:11.5px; color:${sisa > 0 ? '#e74c3c' : '#27ae60'};">${formatRupiah(sisa)}</strong>
+      </div>`;
   }
+
+  // 6. Buka Dialog Print
   window.print();
 }
