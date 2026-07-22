@@ -1,7 +1,7 @@
 // PASTE YOUR SPECIFIC GOOGLE WEB APP URL HERE!
 const API_URL = "https://script.google.com/macros/s/AKfycbyKUqD4vfQ1nRVLvxU_CXvKx2mtu-pWaPz43D1aYSea7QE3CwjS_BIJK2yRTWduukoM/exec"; 
 
-let globalData = { prices: [], customers: [], orders: [], orderDetails: [] };
+let globalData = { prices: [], customers: [], orders: [], orderDetails: [], payables: [], settings: [] };
 let cart = []; 
 let cartTotals = { subTotal: 0, discount: 0, grandTotal: 0, totalModal: 0 };
 let editingWindowId = null; // Tracks which window is currently being edited
@@ -495,7 +495,10 @@ function renderPayables() {
   tbody.innerHTML = "";
   let totalHutang = 0;
   
-  globalData.payables.forEach(p => {
+  // ADDED SAFETY FALLBACK: (globalData.payables || [])
+  const payablesList = globalData.payables || []; 
+  
+  payablesList.forEach(p => {
     let sisaHutang = p.AmountDue - p.AmountPaid;
     if (sisaHutang > 0) totalHutang += sisaHutang;
     
