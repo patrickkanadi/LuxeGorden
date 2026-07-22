@@ -54,7 +54,12 @@ function toggleLayers() {
 
 function promptAdminAccess() {
   const pin = prompt("Enter Master PIN:");
-  if (pin === "8888") { // Change this to your preferred PIN
+  
+  // Find PIN in globalData.settings (defaults to "8888" if missing)
+  const pinSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Master_PIN');
+  const masterPin = pinSetting ? pinSetting.Value.toString() : "8888";
+
+  if (pin === masterPin) {
     renderAnalysis();
     renderPayables();
     document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
@@ -406,10 +411,46 @@ async function deleteOrderPermanently(orderId) {
 function renderPiutang() {
   const tbody = document.getElementById('piutangBody');
   tbody.innerHTML = "";
+  
+  const searchText = (document.getElementById('piutangSearch').value || "").toLowerCase();
+  const sortType = document.getElementById('piutangSort').value;
+
+  // 1. Filter: Only get unpaid orders
   let unpaidOrders = globalData.orders.filter(o => o.Status !== 'Lunas' && o.AmountPaid < o.GrandTotal && o.GrandTotal > 0);
   
-  unpaidOrders.forEach(o => {
+  // 2. Map customer names & remaining debt to the object for easy sorting/searching
+  unpaidOrders = unpaidOrders.map(o => {
     let cust = globalData.customers.find(c => c.CustomerID === o.CustomerID);
+    o.customerName = cust ? cust.Name : 'Unknown';
+    o.sisaTagihan = o.GrandTotal - o.AmountPaid;
+    return o;
+  });
+
+  // 3. Apply Search Filter
+  if (searchText) {
+    unpaidOrders = unpaidOrders.filter(o => 
+      o.customerName.toLowerCase().includes(searchText) || 
+      o.OrderID.toLowerCase().includes(searchText)
+    );
+  }
+
+  // 4. Apply Sort
+  unpaidOrders.sort((a, b) => {
+    if (sortType === 'date_desc') return new Date(b.Date) - new Date(a.Date);
+    if (sortType === 'date_asc') return new Date(a.Date) - new Date(b.Date);
+    if (sortType === 'sisa_desc') return b.sisaTagihan - a.sisaTagihan;
+    if (sortType === 'sisa_asc') return a.sisaTagihan - b.sisaTagihan;
+    return 0;
+  });
+  
+  // 5. Render
+  unpaidOrders.forEach(o => {
+    tbody.innerHTML += `<tr>
+      <td>${o.OrderID}</td><td>${new Date(o.Date).toLocaleDateString()}</td>
+      <td>${o.customerName}</td><td>${formatRupiah(o.GrandTotal)}</td>
+      <td>${formatRupiah(o.AmountPaid)}</td><td style="color:#e74c3c; font-weight:bold;">${formatRupiah(o.sisaTagihan)}</td>
+      <td><button onclick="switchTab('tab-crm'); document.getElementById('crmSearch').value='${o.customerName}'; renderCustomerList();" style="background:#f39c12; padding:5px;">View in CRM</button></td>
+    </tr>`;
     let custName = cust ? cust.Name : 'Unknown';
     let sisa = o.GrandTotal - o.AmountPaid;
     
