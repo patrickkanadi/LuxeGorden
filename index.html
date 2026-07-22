@@ -231,6 +231,17 @@
 
   <div id="tab-piutang" class="tab-content card">
       <h2>Daftar Piutang (Unpaid Customer Balances)</h2>
+      
+      <div class="grid-2" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+        <input type="text" id="piutangSearch" placeholder="Search Customer Name or Order ID..." oninput="renderPiutang()">
+        <select id="piutangSort" onchange="renderPiutang()">
+          <option value="date_desc">Sort: Date (Newest First)</option>
+          <option value="date_asc">Sort: Date (Oldest First)</option>
+          <option value="sisa_desc">Sort: Sisa Tagihan (Highest First)</option>
+          <option value="sisa_asc">Sort: Sisa Tagihan (Lowest First)</option>
+        </select>
+      </div>
+
       <table>
         <thead><tr><th>Order ID</th><th>Date</th><th>Customer</th><th>Grand Total</th><th>Dibayar</th><th>Sisa Tagihan (Piutang)</th><th>Action</th></tr></thead>
         <tbody id="piutangBody"></tbody>
