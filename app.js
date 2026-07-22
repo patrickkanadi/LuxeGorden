@@ -114,16 +114,17 @@ function addBOMToCart() {
   let rawConfig = {
     roomName: room, width: frameW, height: frameH,
     layerKain: document.getElementById('layerKain').checked, kainFabric: document.getElementById('kainFabric').value, kainModel: document.getElementById('kainModel').value, kainFullness: document.getElementById('kainFullness').value, kainRail: document.getElementById('kainRail').value,
-    layerVitrase: document.getElementById('layerVitrase').checked, vitraseFabric: document.getElementById('vitraseFabric').value, vitraseFullness: document.getElementById('vitraseFullness').value, vitraseRail: document.getElementById('vitraseRail').value,
+    layerVitrase: document.getElementById('layerVitrase').checked, vitraseFabric: document.getElementById('vitraseFabric').value, vitraseModel: document.getElementById('vitraseModel').value, vitraseFullness: document.getElementById('vitraseFullness').value, vitraseRail: document.getElementById('vitraseRail').value,
     layerRoller: document.getElementById('layerRoller').checked, rollerFabric: document.getElementById('rollerFabric').value,
-    layerRoman: document.getElementById('layerRoman').checked, romanFabric: document.getElementById('romanFabric').value, incRomanLining: document.getElementById('incRomanLining').checked, romanLining: document.getElementById('romanLining').value, romanMech: document.getElementById('romanMech').value, romanLabor: document.getElementById('romanLabor').value
+    layerRoman: document.getElementById('layerRoman').checked, romanFabric: document.getElementById('romanFabric').value, incRomanLining: document.getElementById('incRomanLining').checked, romanLining: document.getElementById('romanLining').value, romanMech: document.getElementById('romanMech').value, romanLabor: document.getElementById('romanLabor').value,
+    layerCuci: document.getElementById('layerCuci').checked, cuciService: document.getElementById('cuciService').value
   };
 
   function calculateFabric(w, h, fullness) {
     let curtainW = w + 0.10;
     let curtainH = h + 0.15; 
     let qty = (curtainH <= 2.80) ? (w * fullness) : (Math.ceil((curtainW / 1.40) * 2) / 2) * curtainH;
-    return Number(qty.toFixed(1)); // 1 DECIMAL PLACE ROUNDING
+    return Number(qty.toFixed(1));
   }
 
   // --- CUCI LAYER (Add this below Roman Shade block) ---
@@ -143,7 +144,11 @@ function addBOMToCart() {
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: fObj, qty: 0.25, desc: `0.25 m`, customName: `Tali Ikat (${fObj.ItemName})` });
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
     if(rawConfig.kainRail !== 'none') comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.kainRail), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
-    if(rawConfig.kainModel === 'Plong') comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(baseQty * 9), desc: `${Math.ceil(baseQty * 9)} pcs` });
+    
+    // Check if the selected model includes "(Smokering)"
+    if(rawConfig.kainModel.includes('Smokering')) {
+      comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(baseQty * 9), desc: `${Math.ceil(baseQty * 9)} pcs` });
+    }
     summaryDesc.push(`Kain`);
   }
 
@@ -151,9 +156,9 @@ function addBOMToCart() {
   if (rawConfig.layerVitrase) {
     if(!rawConfig.vitraseFabric) return alert("Select Vitrase Fabric!");
     let baseQty = calculateFabric(frameW, frameH, parseFloat(rawConfig.vitraseFullness));
-    comps.push({ layer: 'Vitrase', obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseFabric), qty: baseQty, desc: `${baseQty} m` });
-    comps.push({ layer: 'Vitrase', obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
-    if(rawConfig.vitraseRail !== 'none') comps.push({ layer: 'Vitrase', obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseRail), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseFabric), qty: baseQty, desc: `${baseQty} m` });
+    comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
+    if(rawConfig.vitraseRail !== 'none') comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseRail), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
     summaryDesc.push(`Vitrase`);
   }
 
@@ -225,12 +230,13 @@ function editWindow(roomId) {
 
   document.getElementById('layerKain').checked = cfg.layerKain;
   document.getElementById('kainFabric').value = cfg.kainFabric || "";
-  document.getElementById('kainModel').value = cfg.kainModel || "Biasa";
+  document.getElementById('kainModel').value = cfg.kainModel || "Triple Pinch Pleat";
   document.getElementById('kainFullness').value = cfg.kainFullness || "2.0";
   document.getElementById('kainRail').value = cfg.kainRail || "A-REL";
 
   document.getElementById('layerVitrase').checked = cfg.layerVitrase;
   document.getElementById('vitraseFabric').value = cfg.vitraseFabric || "";
+  document.getElementById('vitraseModel').value = cfg.vitraseModel || "Triple Pinch Pleat";
   document.getElementById('vitraseFullness').value = cfg.vitraseFullness || "2.0";
   document.getElementById('vitraseRail').value = cfg.vitraseRail || "A-REL";
 
@@ -244,6 +250,9 @@ function editWindow(roomId) {
   document.getElementById('romanLining').value = cfg.romanLining || "";
   document.getElementById('romanMech').value = cfg.romanMech || "";
   document.getElementById('romanLabor').value = cfg.romanLabor || "";
+  
+  document.getElementById('layerCuci').checked = cfg.layerCuci;
+  document.getElementById('cuciService').value = cfg.cuciService || "S-CUCI";
 
   toggleLayers();
 
