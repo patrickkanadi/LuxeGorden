@@ -208,14 +208,18 @@ function addBOMToCart() {
     
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: fObj, qty: baseQty, desc: `${baseQty} m` });
     
-    // UPDATED TIEBACK: Sells at 0.25m, but COGS Modal is 0.20m
+    // UPDATED TIEBACK: Smart Pricing (Min 50k, round up nearest 10k)
+    let tiebackBasePrice = fObj[tier] * 0.25;
+    let finalTiebackPrice = Math.max(50000, Math.ceil(tiebackBasePrice / 10000) * 10000);
+
     comps.push({ 
       layer: `Gorden Kain (${rawConfig.kainModel})`, 
       obj: fObj, 
       qtySell: 0.25, 
       qtyModal: 0.20, 
       desc: `0.25 m`, 
-      customName: `Tali Ikat (${fObj.ItemName})` 
+      customName: `Tali Ikat (${fObj.ItemName})`, 
+      overridePrice: finalTiebackPrice // Forces the new rule
     });
     
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m`, isFree: rawConfig.kainFreeJahit });
@@ -282,15 +286,22 @@ function addBOMToCart() {
     
     let qModal = comp.qtyModal !== undefined ? comp.qtyModal : comp.qty;
     let qSell = comp.qtySell !== undefined ? comp.qtySell : comp.qty;
+    
     let sellingPrice = comp.isFree ? 0 : comp.obj[tier];
+    let subPrice = sellingPrice * qSell;
+    
+    // Apply the Tieback pricing override if it exists
+    if (comp.overridePrice !== undefined) {
+       subPrice = comp.overridePrice;
+    }
     
     windowObject.components.push({
       layer: comp.layer, itemCode: comp.obj.ItemCode, itemName: comp.customName || comp.obj.ItemName,
       qtyDesc: comp.desc, 
-      qtyModal: qModal,  // <--- ADDED: Saves Modal Qty to Cart Memory
-      qtySell: qSell,    // <--- ADDED: Saves Sell Qty to Cart Memory
+      qtyModal: qModal,  
+      qtySell: qSell,    
       baseCostTotal: (comp.obj.BaseCost_Modal * qModal), 
-      subtotalPrice: (sellingPrice * qSell),             
+      subtotalPrice: subPrice,             
       supplier: comp.obj.SupplierName
     });
   });
@@ -368,21 +379,24 @@ function refreshCartPrices() {
 
   cart.forEach(w => {
     w.components.forEach(c => {
-      // Only process items that have a valid ItemCode (ignores "LEGACY" text entries)
       if (c.itemCode && c.itemCode !== "LEGACY" && c.itemCode !== "") {
         let currentMaster = globalData.prices.find(p => p.ItemCode === c.itemCode);
         
         if (currentMaster) {
-          let rawQty = parseFloat(c.qtyDesc) || 0;
+          let rawQty = parseFloat(c.qtySell !== undefined ? c.qtySell : c.qtyDesc) || 0;
+          let modalQty = parseFloat(c.qtyModal !== undefined ? c.qtyModal : rawQty) || 0;
           
-          // 1. Update Base Modal Cost
-          c.baseCostTotal = currentMaster.BaseCost_Modal * rawQty;
+          c.baseCostTotal = currentMaster.BaseCost_Modal * modalQty;
 
-          // 2. Update Selling Price (ONLY if it wasn't previously made 'Free' at 0)
           if (c.subtotalPrice > 0 || !c.hasOwnProperty('subtotalPrice')) {
-            c.subtotalPrice = currentMaster[tier] * rawQty;
+              // Apply Tieback Rule during refresh!
+              if (c.itemName && c.itemName.toLowerCase().includes('ikat')) {
+                  let baseTieback = currentMaster[tier] * rawQty;
+                  c.subtotalPrice = Math.max(50000, Math.ceil(baseTieback / 10000) * 10000);
+              } else {
+                  c.subtotalPrice = currentMaster[tier] * rawQty;
+              }
           }
-          
           updatedCount++;
         }
       }
@@ -390,7 +404,7 @@ function refreshCartPrices() {
   });
 
   updateCartUI();
-  alert(`Success! Recalculated prices for ${updatedCount} components based on the latest database and the customer's tier.`);
+  alert(`Success! Recalculated prices for ${updatedCount} components.`);
 }
 
 function updateCartUI() {
@@ -952,16 +966,39 @@ function generateDocument(docType) {
         </tr>`;
       
       layers[layerName].forEach(c => {
-        let displayPrice = (c.subtotalPrice === 0) ? '<i>Included</i>' : formatRupiah(c.subtotalPrice);
+        let isTieback = c.itemName && c.itemName.toLowerCase().includes('ikat');
+        let isSmokering = c.itemName && (c.itemName.toLowerCase().includes('smokering') || c.itemName.toLowerCase().includes('plong'));
+        let isFree = (c.subtotalPrice === 0);
+
+        // 1. Quantity Display Logic
+        let displayQty = c.qtyDesc;
+        if (isTieback || (isSmokering && isFree)) {
+            displayQty = ""; // Hide quantity for Tiebacks and Free Smokerings
+        }
+
+        // 2. Price Display & Unit Cost Logic
+        let displayPrice = "";
+        if (isFree) {
+            displayPrice = '<i>Included</i>';
+        } else {
+            displayPrice = formatRupiah(c.subtotalPrice);
+            // Add the "@ Price/Unit" text if it's NOT a tieback
+            if (!isTieback) {
+                let numericQty = c.qtySell !== undefined ? c.qtySell : parseFloat(c.qtyDesc);
+                if (numericQty > 0) {
+                    let unitPrice = c.subtotalPrice / numericQty;
+                    displayPrice += `<br><span style="font-size:8px; color:#777;">@ ${formatRupiah(unitPrice)}</span>`;
+                }
+            }
+        }
+
         printBody.innerHTML += `
           <tr>
             <td style="padding-left:18px; color:#444;">- ${c.itemName}</td>
-            <td>${c.qtyDesc}</td>
+            <td>${displayQty}</td>
             <td style="text-align:right;">${displayPrice}</td>
           </tr>`;
       });
-    });
-  });
 
   // 5. Total & Rincian Pembayaran
   document.getElementById('printSubtotal').innerText = formatRupiah(cartTotals.subTotal);
