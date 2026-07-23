@@ -177,7 +177,6 @@ function addBOMToCart() {
   let comps = [];
   let summaryDesc = [];
 
-  // Capture Raw Configuration for Editing
   let rawConfig = {
     roomName: room, width: rawW, height: rawH,
     layerKain: document.getElementById('layerKain').checked, kainFabric: document.getElementById('kainFabric').value, kainModel: document.getElementById('kainModel').value, kainFullness: document.getElementById('kainFullness').value, kainRail: document.getElementById('kainRail').value, kainFreeJahit: document.getElementById('kainFreeJahit').checked, kainFreeSmokering: document.getElementById('kainFreeSmokering').checked,
@@ -187,21 +186,38 @@ function addBOMToCart() {
     layerCuci: document.getElementById('layerCuci').checked, cuciService: document.getElementById('cuciService').value
   };
 
+  // ==========================================
+  // UPDATED FABRIC CALCULATION LOGIC
+  // ==========================================
   function calculateFabric(w, h, fullness) {
     let curtainW = w + 0.10;
-    let curtainH = h + 0.25; 
-    let qty = (curtainH <= 2.80) ? (w * fullness) : (Math.ceil((curtainW / 1.40) * 2) / 2) * curtainH;
+    
+    let calculationH = h + 0.25; // Used for the actual math multiplier
+    let checkH = h + 0.15;       // Used ONLY to check if it exceeds 2.80m
+    
+    // If checkH exceeds 2.80, flip vertically and stitch panels (using calculationH for the math)
+    let qty = (checkH <= 2.80) ? (w * fullness) : (Math.ceil((curtainW / 1.40) * 2) / 2) * calculationH;
     return Number(qty.toFixed(1));
   }
 
   // --- KAIN ---
   if (rawConfig.layerKain) {
     if(!rawConfig.kainFabric) return alert("Select Kain Fabric!");
-    // Calculation uses calcW and calcH
     let baseQty = calculateFabric(calcW, calcH, parseFloat(rawConfig.kainFullness));
     let fObj = globalData.prices.find(p => p.ItemCode === rawConfig.kainFabric);
+    
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: fObj, qty: baseQty, desc: `${baseQty} m` });
-    comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: fObj, qty: 0.25, desc: `0.25 m`, customName: `Tali Ikat (${fObj.ItemName})` });
+    
+    // UPDATED TIEBACK: Sells at 0.25m, but COGS Modal is 0.20m
+    comps.push({ 
+      layer: `Gorden Kain (${rawConfig.kainModel})`, 
+      obj: fObj, 
+      qtySell: 0.25, 
+      qtyModal: 0.20, 
+      desc: `0.25 m`, 
+      customName: `Tali Ikat (${fObj.ItemName})` 
+    });
+    
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m`, isFree: rawConfig.kainFreeJahit });
     if(rawConfig.kainRail !== 'none') comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.kainRail), qty: calcW + 0.10, desc: `${(calcW + 0.10).toFixed(2)} m` });
     
@@ -256,7 +272,6 @@ function addBOMToCart() {
   let windowObject = {
     roomId: editingWindowId || Date.now(), 
     roomName: room, 
-    // DISPLAY STRING USES RAW (REAL) SIZES
     ukuran: `L:${rawW}m x T:${rawH}m [${summaryDesc.join(' + ')}]`,
     w: rawW, h: rawH, 
     components: [], rawConfig: rawConfig 
@@ -264,11 +279,19 @@ function addBOMToCart() {
 
   comps.forEach(comp => {
     if (!comp.obj) return; 
+    
+    let qModal = comp.qtyModal !== undefined ? comp.qtyModal : comp.qty;
+    let qSell = comp.qtySell !== undefined ? comp.qtySell : comp.qty;
     let sellingPrice = comp.isFree ? 0 : comp.obj[tier];
+    
     windowObject.components.push({
       layer: comp.layer, itemCode: comp.obj.ItemCode, itemName: comp.customName || comp.obj.ItemName,
-      qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
-      subtotalPrice: (sellingPrice * comp.qty), supplier: comp.obj.SupplierName
+      qtyDesc: comp.desc, 
+      qtyModal: qModal,  // <--- ADDED: Saves Modal Qty to Cart Memory
+      qtySell: qSell,    // <--- ADDED: Saves Sell Qty to Cart Memory
+      baseCostTotal: (comp.obj.BaseCost_Modal * qModal), 
+      subtotalPrice: (sellingPrice * qSell),             
+      supplier: comp.obj.SupplierName
     });
   });
 
@@ -283,7 +306,6 @@ function addBOMToCart() {
   }
 
   updateCartUI();
-  
   document.querySelectorAll('input[type="checkbox"][id^="layer"]').forEach(cb => cb.checked = false);
   toggleLayers();
 }
@@ -495,10 +517,12 @@ async function saveOrder() {
       payloadData.cartItems.push({
         room: w.roomName,
         itemCode: c.itemCode,
-        itemName: finalItemName, // Saves as: "Import Blackout (Triple Pinch Pleat)"
+        itemName: finalItemName, 
         w: w.w,
         h: w.h,
         qtyDesc: c.qtyDesc, 
+        qtyModal: c.qtyModal, // <--- Sent to Code.gs
+        qtySell: c.qtySell,   // <--- Sent to Code.gs
         baseCostTotal: c.baseCostTotal,
         subtotalPrice: c.subtotalPrice
       });
@@ -695,7 +719,10 @@ function editOrderInPOS(orderId, custId) {
           layer: "Rincian Item", 
           itemCode: (d.ItemCode === 'LEGACY') ? '' : d.ItemCode, 
           itemName: d.ItemName, 
-          qtyDesc: parseFloat(d['Qty/Area']) || d['Qty/Area'], 
+          // Updated to look at the new Qty_Sell column (Col I)
+          qtyDesc: parseFloat(d['Qty_Sell']) || d['Qty_Sell'] || 0, 
+          qtyModal: parseFloat(d['Qty_Modal']) || 0,
+          qtySell: parseFloat(d['Qty_Sell']) || 0,
           baseCostTotal: parseFloat(d.BaseCostTotal) || 0, 
           subtotalPrice: parseFloat(d.SubtotalPrice) || 0 
       });
