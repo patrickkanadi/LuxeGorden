@@ -427,22 +427,20 @@ async function saveOrder() {
 
   document.getElementById('btnSave').innerText = "⏳ Saving...";
   
-  // Auto-generate or use existing OrderID
   let orderId = document.getElementById('currentOrderId').value;
   if (!orderId) {
     orderId = "ORD-" + new Date().getTime().toString().slice(6);
   }
 
-  // Find or Mock Customer ID
+  // FIX 1: Safety check added (c.Name && ...) to prevent toLowerCase crash on empty rows
   let custId = "";
-  let existingCust = globalData.customers.find(c => c.Name.toLowerCase() === custName.toLowerCase());
+  let existingCust = globalData.customers.find(c => c.Name && c.Name.toString().toLowerCase() === custName.toString().toLowerCase());
   if (existingCust) {
     custId = existingCust.CustomerID;
   } else {
     custId = "CUST-" + Date.now().toString().slice(8);
   }
 
-  // 1. Order Payload (Saves the exact UI memory to the 'Notes' column!)
   const orderPayload = {
     OrderID: orderId,
     Date: new Date().toISOString(),
@@ -454,13 +452,16 @@ async function saveOrder() {
     NetProfit: cartTotals.netProfit,
     AmountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
     Status: document.getElementById('orderStatus').value,
-    Notes: JSON.stringify(cart) // <--- THIS SAVES ALL PLEATS, CHECKBOXES, AND LAYERS
+    Notes: JSON.stringify(cart)
   };
 
-  // 2. Details Payload (Saves clean numbers to the spreadsheet rows)
+  // FIX 2: Split the Number and the Unit into separate columns
   let detailsPayload = [];
   cart.forEach(w => {
     w.components.forEach(c => {
+      // Extract the unit (e.g. "m2", "pcs") by stripping out the numbers
+      let unitString = c.qtyDesc ? c.qtyDesc.toString().replace(/[0-9.]/g, '').trim() : "";
+      
       detailsPayload.push({
         DetailID: w.roomId.toString() + "-" + Math.random().toString(36).substr(2, 4),
         OrderID: orderId,
@@ -469,14 +470,14 @@ async function saveOrder() {
         ItemName: c.itemName,
         'Width(m)': w.w,
         'Height(m)': w.h,
-        'Qty/Area': parseFloat(c.qtyDesc) || 0, // Forces clean number without "m"
+        'Qty/Area': parseFloat(c.qtyDesc) || 0, // Saves ONLY the number in Col H
+        'Unit': unitString, // Saves ONLY the unit in Col I
         BaseCostTotal: c.baseCostTotal,
         SubtotalPrice: c.subtotalPrice
       });
     });
   });
 
-  // 3. Customer Payload
   const customerPayload = {
     CustomerID: custId,
     Name: custName,
@@ -511,22 +512,32 @@ async function saveOrder() {
 }
 
 function renderCustomerList() {
-  const filterText = document.getElementById('crmSearch').value.toLowerCase();
-  const listDiv = document.getElementById('crmCustomerList'); 
-  listDiv.innerHTML = "";
-  
-  // Set up datalist for Autocomplete
-  let datalistHTML = `<datalist id="custOptions">`;
-  globalData.customers.forEach(c => {
-    datalistHTML += `<option value="${c.Name} - ${c.Phone_WA}">`;
-  });
-  datalistHTML += `</datalist>`;
-  document.getElementById('crmSearch').setAttribute('list', 'custOptions');
-  if(!document.getElementById('custOptions')) document.body.insertAdjacentHTML('beforeend', datalistHTML);
+  const searchInput = document.getElementById('crmSearch');
+  const listDiv = document.getElementById('crmCustomerList');
+  if (!searchInput || !listDiv) return;
 
-  let sorted = [...globalData.customers].sort((a,b) => a.Name.localeCompare(b.Name));
-  let filtered = sorted.filter(c => c.Name.toLowerCase().includes(filterText) || c.Phone_WA.includes(filterText));
-  filtered.forEach(c => { listDiv.innerHTML += `<div class="crm-list-item" onclick="loadCustomerProfile('${c.CustomerID}')"><b>${c.Name}</b> <br><small style="color:#777;">${c.Phone_WA}</small></div>`; });
+  const searchTerm = searchInput.value.toLowerCase().trim();
+  listDiv.innerHTML = "";
+
+  // Strict, crash-proof filtering
+  let filtered = (globalData.customers || []).filter(c => {
+    let name = c.Name ? c.Name.toString().toLowerCase() : "";
+    let phone = c.Phone_WA ? c.Phone_WA.toString().toLowerCase() : "";
+    
+    // Only return exact matches to what is typed
+    return name.includes(searchTerm) || phone.includes(searchTerm);
+  });
+
+  // Sort alphabetically to keep it organized
+  filtered.sort((a, b) => (a.Name || "").localeCompare(b.Name || ""));
+
+  filtered.forEach(c => {
+    listDiv.innerHTML += `
+      <div class="crm-list-item" onclick="viewCustomerProfile('${c.CustomerID}')">
+        <strong style="color:#2c3e50; font-size:14px;">${c.Name}</strong> <br>
+        <span style="font-size:12px; color:#7f8c8d;">WA: ${c.Phone_WA || '-'}</span>
+      </div>`;
+  });
 }
 
 function loadCustomerProfile(custId) {
