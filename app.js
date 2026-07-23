@@ -999,6 +999,8 @@ function generateDocument(docType) {
             <td style="text-align:right;">${displayPrice}</td>
           </tr>`;
       });
+    }
+  }
 
   // 5. Total & Rincian Pembayaran
   document.getElementById('printSubtotal').innerText = formatRupiah(cartTotals.subTotal);
