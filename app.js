@@ -135,51 +135,50 @@ async function saveSettings() {
 // ==========================================
 function addBOMToCart() {
   const room = document.getElementById('roomName').value || "Unnamed Window";
-  let frameW = Math.max(parseFloat(document.getElementById('width').value) || 1.0, 1.0);
-  let frameH = Math.max(parseFloat(document.getElementById('height').value) || 1.0, 1.0);
+  
+  // 1. REAL SIZES (Used for Displaying on Invoice)
+  let rawW = parseFloat(document.getElementById('width').value) || 0;
+  let rawH = parseFloat(document.getElementById('height').value) || 0;
+  
+  // 2. CALCULATION SIZES (Forces 1 Meter Minimum for pricing)
+  let calcW = Math.max(rawW, 1.0);
+  let calcH = Math.max(rawH, 1.0);
+
   const tier = document.getElementById('custTier').value; 
   
   let comps = [];
   let summaryDesc = [];
 
-  // Capture Raw Configuration for later Editing
+  // Capture Raw Configuration for Editing
   let rawConfig = {
-    roomName: room, width: frameW, height: frameH,
-    layerKain: document.getElementById('layerKain').checked, kainFabric: document.getElementById('kainFabric').value, kainModel: document.getElementById('kainModel').value, kainFullness: document.getElementById('kainFullness').value, kainRail: document.getElementById('kainRail').value,
-    layerVitrase: document.getElementById('layerVitrase').checked, vitraseFabric: document.getElementById('vitraseFabric').value, vitraseModel: document.getElementById('vitraseModel').value, vitraseFullness: document.getElementById('vitraseFullness').value, vitraseRail: document.getElementById('vitraseRail').value,
+    roomName: room, width: rawW, height: rawH,
+    layerKain: document.getElementById('layerKain').checked, kainFabric: document.getElementById('kainFabric').value, kainModel: document.getElementById('kainModel').value, kainFullness: document.getElementById('kainFullness').value, kainRail: document.getElementById('kainRail').value, kainFreeJahit: document.getElementById('kainFreeJahit').checked, kainFreeSmokering: document.getElementById('kainFreeSmokering').checked,
+    layerVitrase: document.getElementById('layerVitrase').checked, vitraseFabric: document.getElementById('vitraseFabric').value, vitraseModel: document.getElementById('vitraseModel').value, vitraseFullness: document.getElementById('vitraseFullness').value, vitraseRail: document.getElementById('vitraseRail').value, vitraseFreeJahit: document.getElementById('vitraseFreeJahit').checked,
     layerRoller: document.getElementById('layerRoller').checked, rollerFabric: document.getElementById('rollerFabric').value,
-    layerRoman: document.getElementById('layerRoman').checked, romanFabric: document.getElementById('romanFabric').value, incRomanLining: document.getElementById('incRomanLining').checked, romanLining: document.getElementById('romanLining').value, romanMech: document.getElementById('romanMech').value, romanLabor: document.getElementById('romanLabor').value,
+    layerRoman: document.getElementById('layerRoman').checked, romanFabric: document.getElementById('romanFabric').value, incRomanLining: document.getElementById('incRomanLining').checked, romanLining: document.getElementById('romanLining').value, romanMech: document.getElementById('romanMech').value, romanLabor: document.getElementById('romanLabor').value, romanFreeJahit: document.getElementById('romanFreeJahit').checked,
     layerCuci: document.getElementById('layerCuci').checked, cuciService: document.getElementById('cuciService').value
   };
 
   function calculateFabric(w, h, fullness) {
     let curtainW = w + 0.10;
-    let curtainH = h + 0.25; // Reverted to +25cm allowance
+    let curtainH = h + 0.25; 
     let qty = (curtainH <= 2.80) ? (w * fullness) : (Math.ceil((curtainW / 1.40) * 2) / 2) * curtainH;
     return Number(qty.toFixed(1));
-  }
-
-  // --- CUCI LAYER (Add this below Roman Shade block) ---
-  if (document.getElementById('layerCuci').checked) {
-    let cuciCode = document.getElementById('cuciService').value;
-    let area = Number((frameW * frameH).toFixed(1)); // 1 DECIMAL PLACE
-    comps.push({ layer: 'Jasa Cuci', obj: globalData.prices.find(p => p.ItemCode === cuciCode), qty: area, desc: `${area.toFixed(1)} m2` });
-    summaryDesc.push(`Cuci`);
   }
 
   // --- KAIN ---
   if (rawConfig.layerKain) {
     if(!rawConfig.kainFabric) return alert("Select Kain Fabric!");
-    let baseQty = calculateFabric(frameW, frameH, parseFloat(rawConfig.kainFullness));
+    // Calculation uses calcW and calcH
+    let baseQty = calculateFabric(calcW, calcH, parseFloat(rawConfig.kainFullness));
     let fObj = globalData.prices.find(p => p.ItemCode === rawConfig.kainFabric);
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: fObj, qty: baseQty, desc: `${baseQty} m` });
     comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: fObj, qty: 0.25, desc: `0.25 m`, customName: `Tali Ikat (${fObj.ItemName})` });
-    comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
-    if(rawConfig.kainRail !== 'none') comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.kainRail), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m`, isFree: rawConfig.kainFreeJahit });
+    if(rawConfig.kainRail !== 'none') comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.kainRail), qty: calcW + 0.10, desc: `${(calcW + 0.10).toFixed(2)} m` });
     
-    // Check if the selected model includes "(Smokering)"
     if(rawConfig.kainModel.includes('Smokering')) {
-      comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(baseQty * 9), desc: `${Math.ceil(baseQty * 9)} pcs` });
+      comps.push({ layer: `Gorden Kain (${rawConfig.kainModel})`, obj: globalData.prices.find(p => p.ItemCode === 'A-PLONG'), qty: Math.ceil(baseQty * 9), desc: `${Math.ceil(baseQty * 9)} pcs`, isFree: rawConfig.kainFreeSmokering });
     }
     summaryDesc.push(`Kain`);
   }
@@ -187,17 +186,17 @@ function addBOMToCart() {
   // --- VITRASE ---
   if (rawConfig.layerVitrase) {
     if(!rawConfig.vitraseFabric) return alert("Select Vitrase Fabric!");
-    let baseQty = calculateFabric(frameW, frameH, parseFloat(rawConfig.vitraseFullness));
+    let baseQty = calculateFabric(calcW, calcH, parseFloat(rawConfig.vitraseFullness));
     comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseFabric), qty: baseQty, desc: `${baseQty} m` });
-    comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m` });
-    if(rawConfig.vitraseRail !== 'none') comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseRail), qty: frameW + 0.10, desc: `${(frameW + 0.10).toFixed(2)} m` });
+    comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === 'S-JAHIT'), qty: baseQty, desc: `${baseQty} m`, isFree: rawConfig.vitraseFreeJahit });
+    if(rawConfig.vitraseRail !== 'none') comps.push({ layer: `Vitrase (${rawConfig.vitraseModel})`, obj: globalData.prices.find(p => p.ItemCode === rawConfig.vitraseRail), qty: calcW + 0.10, desc: `${(calcW + 0.10).toFixed(2)} m` });
     summaryDesc.push(`Vitrase`);
   }
 
   // --- ROLLER BLIND ---
   if (rawConfig.layerRoller) {
     if(!rawConfig.rollerFabric) return alert("Select Roller Blind!");
-    let area = Math.max((frameW * frameH), 1.0);
+    let area = calcW * calcH; 
     comps.push({ layer: 'Roller Blind', obj: globalData.prices.find(p => p.ItemCode === rawConfig.rollerFabric), qty: area, desc: `${area.toFixed(2)} m2` });
     summaryDesc.push(`Roller Blind`);
   }
@@ -205,47 +204,58 @@ function addBOMToCart() {
   // --- ROMAN SHADE ---
   if (rawConfig.layerRoman) {
     if(!rawConfig.romanFabric || !rawConfig.romanMech || !rawConfig.romanLabor || (rawConfig.incRomanLining && !rawConfig.romanLining)) return alert("Complete Roman Dropdowns!");
-    let rW = frameW + 0.25; let rH = frameH + 0.25;
+    let rW = calcW + 0.25; let rH = calcH + 0.25;
     let fabricQty = (rH <= 2.65) ? rW : (Math.ceil((rW / 1.40) * 2) / 2) * rH;
     fabricQty = Math.round(fabricQty * 100) / 100;
     
     comps.push({ layer: 'Roman Shade', obj: globalData.prices.find(p => p.ItemCode === rawConfig.romanFabric), qty: fabricQty, desc: `${fabricQty} m` });
     if (rawConfig.incRomanLining) comps.push({ layer: 'Roman Shade', obj: globalData.prices.find(p => p.ItemCode === rawConfig.romanLining), qty: fabricQty, desc: `${fabricQty} m`, customName: `Furing / Lining` });
     comps.push({ layer: 'Roman Shade', obj: globalData.prices.find(p => p.ItemCode === rawConfig.romanMech), qty: rW, desc: `${rW.toFixed(2)} m` });
-    comps.push({ layer: 'Roman Shade', obj: globalData.prices.find(p => p.ItemCode === rawConfig.romanLabor), qty: (rW * rH), desc: `${(rW * rH).toFixed(2)} m2` });
+    comps.push({ layer: 'Roman Shade', obj: globalData.prices.find(p => p.ItemCode === rawConfig.romanLabor), qty: (rW * rH), desc: `${(rW * rH).toFixed(2)} m2`, isFree: rawConfig.romanFreeJahit });
     summaryDesc.push(`Roman Shade`);
+  }
+
+  // --- CUCI ---
+  if (rawConfig.layerCuci) {
+    let cuciCode = rawConfig.cuciService;
+    let area = Number((calcW * calcH).toFixed(1));
+    comps.push({ layer: 'Jasa Cuci', obj: globalData.prices.find(p => p.ItemCode === cuciCode), qty: area, desc: `${area.toFixed(1)} m2` });
+    summaryDesc.push(`Cuci`);
   }
 
   if (comps.length === 0) return alert("Check at least one layer!");
 
   let windowObject = {
-    roomId: editingWindowId || Date.now(), // Use existing ID if editing
-    roomName: room, ukuran: `L:${frameW}m x T:${frameH}m [${summaryDesc.join(' + ')}]`,
-    w: frameW, h: frameH, components: [], rawConfig: rawConfig // Saved!
+    roomId: editingWindowId || Date.now(), 
+    roomName: room, 
+    // DISPLAY STRING USES RAW (REAL) SIZES
+    ukuran: `L:${rawW}m x T:${rawH}m [${summaryDesc.join(' + ')}]`,
+    w: rawW, h: rawH, 
+    components: [], rawConfig: rawConfig 
   };
 
   comps.forEach(comp => {
     if (!comp.obj) return; 
+    let sellingPrice = comp.isFree ? 0 : comp.obj[tier];
     windowObject.components.push({
       layer: comp.layer, itemCode: comp.obj.ItemCode, itemName: comp.customName || comp.obj.ItemName,
       qtyDesc: comp.desc, baseCostTotal: (comp.obj.BaseCost_Modal * comp.qty),
-      subtotalPrice: (comp.obj[tier] * comp.qty), supplier: comp.obj.SupplierName
+      subtotalPrice: (sellingPrice * comp.qty), supplier: comp.obj.SupplierName
     });
   });
 
   if (editingWindowId) {
     let idx = cart.findIndex(w => w.roomId === editingWindowId);
-    if (idx > -1) cart[idx] = windowObject; // Update existing
+    if (idx > -1) cart[idx] = windowObject; 
     editingWindowId = null;
     let btn = document.getElementById('btnAddUpdateWindow');
     btn.innerText = "+ Add Window to Order"; btn.style.background = "#2980b9";
   } else {
-    cart.push(windowObject); // Add new
+    cart.push(windowObject); 
   }
 
   updateCartUI();
   
-  // Clean up Form
   document.querySelectorAll('input[type="checkbox"][id^="layer"]').forEach(cb => cb.checked = false);
   toggleLayers();
 }
