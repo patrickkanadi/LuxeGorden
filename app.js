@@ -505,31 +505,31 @@ async function saveOrder() {
   cart.forEach(w => {
     w.components.forEach(c => {
       
-      // NEW FEATURE: Extract Pleat/Model and attach it to the Item Name!
-      let finalItemName = c.itemName;
+      let finalPleatType = "";
       
-      // If the layer has a pleat defined in brackets, e.g. "Gorden Kain (Triple Pinch Pleat)"
-      if (c.layer.includes('(') && c.layer.includes(')')) {
-        let pleatModel = c.layer.substring(c.layer.indexOf('('), c.layer.indexOf(')') + 1);
-        finalItemName = finalItemName + " " + pleatModel;
+      // Only extract Pleats for Kain and Vitrase (leaves Roller, Roman, Cuci blank)
+      if (c.layer.includes('Kain') || c.layer.includes('Vitrase')) {
+        if (c.layer.includes('(') && c.layer.includes(')')) {
+          finalPleatType = c.layer.substring(c.layer.indexOf('(') + 1, c.layer.indexOf(')'));
+        }
       }
 
       payloadData.cartItems.push({
         room: w.roomName,
         itemCode: c.itemCode,
-        itemName: finalItemName, 
+        itemName: c.itemName, // Leaves it pure: "Import Blackout 0.8"
+        pleatType: finalPleatType, // Passes exactly: "Triple Pinch Pleat"
         w: w.w,
         h: w.h,
         qtyDesc: c.qtyDesc, 
-        qtyModal: c.qtyModal, // <--- Sent to Code.gs
-        qtySell: c.qtySell,   // <--- Sent to Code.gs
+        qtyModal: c.qtyModal, 
+        qtySell: c.qtySell,   
         baseCostTotal: c.baseCostTotal,
         subtotalPrice: c.subtotalPrice
       });
     });
   });
 
-  // MUST be 'saveOrder' so it matches the doPost in Code.gs!
   const requestData = {
     action: 'saveOrder', 
     payload: payloadData
