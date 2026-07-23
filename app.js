@@ -334,6 +334,43 @@ function editWindow(roomId) {
   document.getElementById('roomName').scrollIntoView({behavior: "smooth", block: "center"});
 }
 
+// ==========================================
+// REFRESH OLD ORDERS WITH NEW DATABASE PRICES
+// ==========================================
+function refreshCartPrices() {
+  if (cart.length === 0) return alert("Cart is empty! Nothing to refresh.");
+  if (!confirm("Are you sure you want to update all items in this order to the latest Master Prices?")) return;
+  
+  const tier = document.getElementById('custTier').value || "Price_Reguler";
+  let updatedCount = 0;
+
+  cart.forEach(w => {
+    w.components.forEach(c => {
+      // Only process items that have a valid ItemCode (ignores "LEGACY" text entries)
+      if (c.itemCode && c.itemCode !== "LEGACY" && c.itemCode !== "") {
+        let currentMaster = globalData.prices.find(p => p.ItemCode === c.itemCode);
+        
+        if (currentMaster) {
+          let rawQty = parseFloat(c.qtyDesc) || 0;
+          
+          // 1. Update Base Modal Cost
+          c.baseCostTotal = currentMaster.BaseCost_Modal * rawQty;
+
+          // 2. Update Selling Price (ONLY if it wasn't previously made 'Free' at 0)
+          if (c.subtotalPrice > 0 || !c.hasOwnProperty('subtotalPrice')) {
+            c.subtotalPrice = currentMaster[tier] * rawQty;
+          }
+          
+          updatedCount++;
+        }
+      }
+    });
+  });
+
+  updateCartUI();
+  alert(`Success! Recalculated prices for ${updatedCount} components based on the latest database and the customer's tier.`);
+}
+
 function updateCartUI() {
   const tbody = document.getElementById('cartBody');
   tbody.innerHTML = "";
