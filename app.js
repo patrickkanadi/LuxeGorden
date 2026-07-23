@@ -945,10 +945,10 @@ function generateDocument(docType) {
   cart.forEach(windowObj => {
     let roomSubtotal = windowObj.components.reduce((sum, c) => sum + c.subtotalPrice, 0);
     
-    // Header Ruangan
+    // Header Ruangan (colspan updated to 3 so the Total sits in column 4)
     printBody.innerHTML += `
       <tr class="print-room-row">
-        <td colspan="2"><b>${windowObj.roomName}</b> <span style="font-size:9.5px; font-weight:normal; color:#555;">(${windowObj.ukuran})</span></td>
+        <td colspan="3"><b>${windowObj.roomName}</b> <span style="font-size:9.5px; font-weight:normal; color:#555;">(${windowObj.ukuran})</span></td>
         <td style="text-align:right;"><b>${formatRupiah(roomSubtotal)}</b></td>
       </tr>`;
     
@@ -960,9 +960,10 @@ function generateDocument(docType) {
     });
 
     Object.keys(layers).forEach(layerName => {
+      // Layer Header (colspan updated to 4)
       printBody.innerHTML += `
         <tr>
-          <td colspan="3" style="font-size:9.5px; font-weight:bold; color:#34495e; padding: 3px 8px; background:#f8f9fa;">➔ ${layerName}</td>
+          <td colspan="4" style="font-size:9.5px; font-weight:bold; color:#34495e; padding: 3px 8px; background:#f8f9fa;">➔ ${layerName}</td>
         </tr>`;
       
       layers[layerName].forEach(c => {
@@ -976,27 +977,31 @@ function generateDocument(docType) {
             displayQty = ""; // Hide quantity for Tiebacks and Free Smokerings
         }
 
-        // 2. Price Display & Unit Cost Logic
-        let displayPrice = "";
+        // 2. Split Price into Unit and Total Columns
+        let displayUnitPrice = "-";
+        let displayTotalPrice = "";
+
         if (isFree) {
-            displayPrice = '<i>Included</i>';
+            displayTotalPrice = '<i>Included</i>';
         } else {
-            displayPrice = formatRupiah(c.subtotalPrice);
-            // Add the "@ Price/Unit" text if it's NOT a tieback
+            displayTotalPrice = formatRupiah(c.subtotalPrice);
+            // Calculate and show unit price if it's NOT a tieback
             if (!isTieback) {
                 let numericQty = c.qtySell !== undefined ? c.qtySell : parseFloat(c.qtyDesc);
                 if (numericQty > 0) {
                     let unitPrice = c.subtotalPrice / numericQty;
-                    displayPrice += `<br><span style="font-size:8px; color:#777;">@ ${formatRupiah(unitPrice)}</span>`;
+                    displayUnitPrice = formatRupiah(unitPrice);
                 }
             }
         }
 
+        // Output exactly 4 columns
         printBody.innerHTML += `
           <tr>
             <td style="padding-left:18px; color:#444;">- ${c.itemName}</td>
             <td>${displayQty}</td>
-            <td style="text-align:right;">${displayPrice}</td>
+            <td style="text-align:right; color:#777;">${displayUnitPrice}</td>
+            <td style="text-align:right; font-weight:bold; color:#2c3e50;">${displayTotalPrice}</td>
           </tr>`;
       });
     });
