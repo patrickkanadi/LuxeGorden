@@ -459,20 +459,16 @@ function updateCartUI() {
 function removeWindow(index) { cart.splice(index, 1); cartModified = true; updateCartUI(); }
 
 function clearCartAndOrder() {
-
-  cartModified = false;
-  // Clear order tracking
   document.getElementById('currentOrderId').value = "";
   document.getElementById('displayOrderId').innerText = "";
   document.getElementById('editAlert').hidden = true;
   
-  // Clear Customer
+  // Clear Customer & Window Builder
   document.getElementById('custName').value = "";
   document.getElementById('custWA').value = "";
   document.getElementById('custAddress').value = "";
   document.getElementById('custTier').value = "Price_Reguler";
   
-  // Clear Window Builder
   document.getElementById('roomName').value = "";
   document.getElementById('width').value = "1.0";
   document.getElementById('height').value = "1.0";
@@ -485,16 +481,13 @@ function clearCartAndOrder() {
   document.getElementById('discountValue').value = 0;
   document.getElementById('discountType').value = "rp";
   
-  // Clear Cart
+  // Reset Cart & Memory Snapshot
   cart = [];
   editingWindowId = null;
+  window.originalLoadedCartJSON = null; // <--- NEW! Clears the snapshot
   
-  // Reset Button
   let btn = document.getElementById('btnAddUpdateWindow');
-  if(btn) {
-    btn.innerText = "+ Add Window to Order";
-    btn.style.background = "#2980b9";
-  }
+  if(btn) { btn.innerText = "+ Add Window to Order"; btn.style.background = "#2980b9"; }
   
   updateCartUI();
 }
@@ -505,6 +498,15 @@ async function saveOrder() {
   if (cart.length === 0) return alert("Cart is empty!");
 
   document.getElementById('btnSave').innerText = "⏳ Saving...";
+
+  // SMART AUTO-DETECT: Did the cart items actually change?
+  let currentCartJSON = JSON.stringify(cart);
+  let cartWasModified = true;
+
+  // If the cart perfectly matches the snapshot, we ONLY changed payments!
+  if (window.originalLoadedCartJSON && window.originalLoadedCartJSON === currentCartJSON) {
+      cartWasModified = false;
+  }
 
   let payloadData = {
     orderId: document.getElementById('currentOrderId').value,
@@ -518,43 +520,28 @@ async function saveOrder() {
     totalModal: cartTotals.totalModal,
     amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
     status: document.getElementById('orderStatus').value,
-    notes: JSON.stringify(cart), 
-    isCartModified: cartModified, // <--- NEW FLAG!
+    notes: currentCartJSON, 
+    isCartModified: cartWasModified, // <--- Sends the Auto-Detect result to backend!
     cartItems: []
   };
 
   cart.forEach(w => {
     w.components.forEach(c => {
-      
       let finalPleatType = "";
-      
-      // Only extract Pleats for Kain and Vitrase (leaves Roller, Roman, Cuci blank)
       if (c.layer.includes('Kain') || c.layer.includes('Vitrase')) {
         if (c.layer.includes('(') && c.layer.includes(')')) {
           finalPleatType = c.layer.substring(c.layer.indexOf('(') + 1, c.layer.indexOf(')'));
         }
       }
-
       payloadData.cartItems.push({
-        room: w.roomName,
-        itemCode: c.itemCode,
-        itemName: c.itemName, // Leaves it pure: "Import Blackout 0.8"
-        pleatType: finalPleatType, // Passes exactly: "Triple Pinch Pleat"
-        w: w.w,
-        h: w.h,
-        qtyDesc: c.qtyDesc, 
-        qtyModal: c.qtyModal, 
-        qtySell: c.qtySell,   
-        baseCostTotal: c.baseCostTotal,
-        subtotalPrice: c.subtotalPrice
+        room: w.roomName, itemCode: c.itemCode, itemName: c.itemName, pleatType: finalPleatType,
+        w: w.w, h: w.h, qtyDesc: c.qtyDesc, qtyModal: c.qtyModal, qtySell: c.qtySell,   
+        baseCostTotal: c.baseCostTotal, subtotalPrice: c.subtotalPrice
       });
     });
   });
 
-  const requestData = {
-    action: 'saveOrder', 
-    payload: payloadData
-  };
+  const requestData = { action: 'saveOrder', payload: payloadData };
 
   try {
     let res = await fetch(API_URL, { method: "POST", body: JSON.stringify(requestData) });
@@ -700,23 +687,27 @@ function editOrderInPOS(orderId, custId) {
   
  // MAGIC RESTORE: Load the exact UI memory from the new System_Memory column
   let restoredCart = null;
+  let rawMemoryString = order.System_Memory || ""; 
+
   try {
-    if (order.System_Memory) {
-      // Use the new dedicated JSON column
-      restoredCart = JSON.parse(order.System_Memory);
+    if (rawMemoryString) {
+      restoredCart = JSON.parse(rawMemoryString);
     } else if (order.Notes && order.Notes.includes('=== SYSTEM MEMORY (DO NOT EDIT) ===')) {
-      // Fallback for orders saved in the brief window before this update
       let jsonPart = order.Notes.split('=== SYSTEM MEMORY (DO NOT EDIT) ===')[1].trim();
       restoredCart = JSON.parse(jsonPart);
+      rawMemoryString = jsonPart; 
     } else if (order.Notes && order.Notes.includes('roomId')) {
-      // Fallback for older formats
       restoredCart = JSON.parse(order.Notes);
+      rawMemoryString = order.Notes; 
     }
   } catch(e) {
     console.log("No JSON memory found, falling back to legacy format.");
   }
+
+  // NEW: Take a snapshot of the exact loaded cart!
+  window.originalLoadedCartJSON = rawMemoryString;
+
   if (restoredCart) {
-    // PERFECT RESTORE: Pleats, groupings, and window configurations are 100% back!
     cart = restoredCart;
   } else {
     // LEGACY FALLBACK: For old imported orders without memory
