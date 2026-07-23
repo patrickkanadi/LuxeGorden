@@ -610,13 +610,17 @@ function editOrderInPOS(orderId, custId) {
   // MAGIC RESTORE: Check if we saved the exact UI memory in the Notes column
   let restoredCart = null;
   try {
-    if (order.Notes && order.Notes.includes('roomId')) {
+    if (order.Notes && order.Notes.includes('=== SYSTEM MEMORY (DO NOT EDIT) ===')) {
+      // Read the hidden JSON at the bottom
+      let jsonPart = order.Notes.split('=== SYSTEM MEMORY (DO NOT EDIT) ===')[1].trim();
+      restoredCart = JSON.parse(jsonPart);
+    } else if (order.Notes && order.Notes.includes('roomId')) {
+      // Fallback for orders made before this update
       restoredCart = JSON.parse(order.Notes);
     }
   } catch(e) {
     console.log("No JSON memory found, falling back to legacy format.");
   }
-
   if (restoredCart) {
     // PERFECT RESTORE: Pleats, groupings, and window configurations are 100% back!
     cart = restoredCart;
