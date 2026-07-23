@@ -140,8 +140,7 @@
           <label><input type="checkbox" id="layerCuci" onchange="toggleLayers()"> 🧼 Jasa Cuci</label>
         </div>
 
-        <div class="grid-2">
-          <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
+        <div id="configKain" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
             <h4 style="margin-top:0; color:#2980b9;">⚙️ Gorden Kain</h4>
             <div class="grid-2">
               <div class="form-group"><label>Fabric</label><select id="kainFabric"><option value="">-- Kain --</option></select></div>
@@ -164,6 +163,10 @@
               <div class="form-group"><label>Fullness</label><select id="kainFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select></div>
               <div class="form-group"><label>Railing</label><select id="kainRail"><option value="A-REL">Normal Railing</option><option value="A-STICK">Stick Railing</option><option value="none">No Railing</option></select></div>
             </div>
+            <div class="form-group" style="background: #eee; padding: 10px; border-radius: 5px; display: flex; gap: 20px;">
+              <label><input type="checkbox" id="kainFreeJahit" checked> Free Ongkos Jahit</label>
+              <label><input type="checkbox" id="kainFreeSmokering"> Free Smokering / Plong</label>
+            </div>
           </div>
           
           <div id="configVitrase" style="display:none; background: #f9f9f9; padding: 15px; border-radius: 5px;">
@@ -182,6 +185,9 @@
             <div class="grid-2">
               <div class="form-group"><label>Fullness</label><select id="vitraseFullness"><option value="2.0">Biasa (2.0x)</option><option value="2.3">Rapat (2.3x)</option><option value="1.8">Loose (1.8x)</option></select></div>
               <div class="form-group"><label>Railing</label><select id="vitraseRail"><option value="A-REL">Normal Railing</option><option value="none">No Railing</option></select></div>
+            </div>
+            <div class="form-group" style="background: #eee; padding: 10px; border-radius: 5px;">
+              <label><input type="checkbox" id="vitraseFreeJahit" checked> Free Ongkos Jahit</label>
             </div>
           </div>
         </div>
@@ -202,8 +208,10 @@
               <div class="form-group"><label>Mechanism Rail</label><select id="romanMech"><option value="">-- Mechanism --</option></select></div>
               <div class="form-group"><label>Sewing Labor</label><select id="romanLabor"><option value="">-- Labor --</option></select></div>
             </div>
+            <div class="form-group" style="background: #eee; padding: 10px; border-radius: 5px;">
+              <label><input type="checkbox" id="romanFreeJahit"> Free Ongkos Jahit</label>
+            </div>
           </div>
-        </div>
         
         <div id="configCuci" style="display:none; background: #e8f8f5; padding: 15px; border-radius: 5px; margin-top:15px;">
           <h4 style="margin-top:0; color:#16a085;">🧼 Jasa Cuci</h4>
