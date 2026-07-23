@@ -104,15 +104,16 @@
       
       <div class="card" style="display:flex; justify-content: space-between; align-items: center;" id="editAlert" hidden>
         <span style="color:#e74c3c; font-weight:bold;">Editing Existing Order: <span id="displayOrderId"></span></span>
-        <button onclick="clearCartAndOrder()" style="width:auto; background:#7f8c8d; color:white; padding: 5px 15px;">Cancel Edit (New Order)</button>
+        <button type="button" onclick="clearCartAndOrder()" style="width:auto; background:#7f8c8d; color:white; padding: 5px 15px;">Cancel Edit (New Order)</button>
       </div>
 
       <div class="card">
         <h2 style="margin-top:0;">1. Customer Details</h2>
+        <datalist id="customerDatalist"></datalist>
         <div class="grid-2">
-          <div class="form-group"><label>Name *</label><input type="text" id="custName" placeholder="e.g. Anette"></div>
-          <div class="form-group"><label>WhatsApp</label><input type="text" id="custWA" placeholder="0812..."></div>
-          <div class="form-group"><label>Address (Optional)</label><input type="text" id="custAddress" placeholder="Jalan..."></div>
+          <div class="form-group"><label>Name *</label><input type="text" id="custName" list="customerDatalist" onfocus="populateCustomerDatalist()" oninput="autoFillCustomer()" placeholder="e.g. Anette" autocomplete="off"></div>
+          <div class="form-group"><label>WhatsApp</label><input type="text" id="custWA" placeholder="0812..." autocomplete="off"></div>
+          <div class="form-group"><label>Address (Optional)</label><input type="text" id="custAddress" placeholder="Jalan..." autocomplete="off"></div>
           <div class="form-group"><label>Customer Tier</label>
             <select id="custTier">
               <option value="Price_Reguler">Reguler</option>
@@ -260,7 +261,7 @@
       <div class="grid-2">
         <div class="card" style="height: 500px; overflow-y: auto;">
           <h2>Search Customer</h2>
-          <input type="text" id="crmSearch" placeholder="Type name or WA..." oninput="renderCustomerList()" style="margin-bottom: 10px;">
+          <input type="text" id="crmSearch" placeholder="Type name or WA..." oninput="renderCustomerList()" autocomplete="off" style="margin-bottom: 10px;">
           <div id="crmCustomerList"></div>
         </div>
 
