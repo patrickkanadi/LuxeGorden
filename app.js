@@ -421,40 +421,93 @@ function clearCartAndOrder() {
 }
 
 async function saveOrder() {
-  const custName = document.getElementById('custName').value.trim();
-  if (!custName || cart.length === 0) return alert("Name & Cart are required!");
-  const btn = document.getElementById('btnSave'); btn.innerText = "Saving..."; btn.disabled = true;
+  const custName = document.getElementById('custName').value;
+  if (!custName) return alert("Please enter Customer Name!");
+  if (cart.length === 0) return alert("Cart is empty!");
 
-  let flatCart = [];
+  document.getElementById('btnSave').innerText = "⏳ Saving...";
+  
+  // Auto-generate or use existing OrderID
+  let orderId = document.getElementById('currentOrderId').value;
+  if (!orderId) {
+    orderId = "ORD-" + new Date().getTime().toString().slice(6);
+  }
+
+  // Find or Mock Customer ID
+  let custId = "";
+  let existingCust = globalData.customers.find(c => c.Name.toLowerCase() === custName.toLowerCase());
+  if (existingCust) {
+    custId = existingCust.CustomerID;
+  } else {
+    custId = "CUST-" + Date.now().toString().slice(8);
+  }
+
+  // 1. Order Payload (Saves the exact UI memory to the 'Notes' column!)
+  const orderPayload = {
+    OrderID: orderId,
+    Date: new Date().toISOString(),
+    CustomerID: custId,
+    SubTotal: cartTotals.subTotal,
+    Discount: cartTotals.discount,
+    GrandTotal: cartTotals.grandTotal,
+    TotalModal_COGS: cartTotals.totalModal,
+    NetProfit: cartTotals.netProfit,
+    AmountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
+    Status: document.getElementById('orderStatus').value,
+    Notes: JSON.stringify(cart) // <--- THIS SAVES ALL PLEATS, CHECKBOXES, AND LAYERS
+  };
+
+  // 2. Details Payload (Saves clean numbers to the spreadsheet rows)
+  let detailsPayload = [];
   cart.forEach(w => {
-      w.components.forEach(c => {
-        detailsPayload.push({
-          DetailID: w.roomId + "-" + Math.random().toString(36).substr(2, 5),
-          OrderID: orderId,
-          RoomName: w.roomName,
-          ItemCode: c.itemCode,
-          ItemName: c.itemName,
-          'Width(m)': w.w,
-          'Height(m)': w.h,
-          'Qty/Area': parseFloat(c.qtyDesc) || 0, // <--- THIS FORCES IT TO SAVE AS A RAW NUMBER ONLY
-          BaseCostTotal: c.baseCostTotal,
-          SubtotalPrice: c.subtotalPrice
-        });
+    w.components.forEach(c => {
+      detailsPayload.push({
+        DetailID: w.roomId.toString() + "-" + Math.random().toString(36).substr(2, 4),
+        OrderID: orderId,
+        RoomName: w.roomName,
+        ItemCode: c.itemCode,
+        ItemName: c.itemName,
+        'Width(m)': w.w,
+        'Height(m)': w.h,
+        'Qty/Area': parseFloat(c.qtyDesc) || 0, // Forces clean number without "m"
+        BaseCostTotal: c.baseCostTotal,
+        SubtotalPrice: c.subtotalPrice
       });
     });
+  });
 
-  const payload = {
-    orderId: document.getElementById('currentOrderId').value, customerName: custName, customerWA: document.getElementById('custWA').value,
-    customerAddress: document.getElementById('custAddress').value, customerTier: document.getElementById('custTier').value,
-    subTotal: cartTotals.subTotal, discount: cartTotals.discount, grandTotal: cartTotals.grandTotal, totalModal: cartTotals.totalModal,
-    amountPaid: document.getElementById('amountPaid').value, status: document.getElementById('orderStatus').value, cartItems: flatCart
+  // 3. Customer Payload
+  const customerPayload = {
+    CustomerID: custId,
+    Name: custName,
+    Phone_WA: document.getElementById('custWA').value,
+    Address: document.getElementById('custAddress').value,
+    Tier: document.getElementById('custTier').value
+  };
+
+  const requestData = {
+    action: 'saveOrder',
+    payload: {
+      order: orderPayload,
+      details: detailsPayload,
+      customer: customerPayload
+    }
   };
 
   try {
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveOrder", payload: payload }) });
-    const data = await res.json();
-    if (data.success) { alert("Order Saved!"); location.reload(); }
-  } catch(e) { alert("Error!"); btn.innerText = "💾 Save / Update Order"; btn.disabled = false; }
+    let res = await fetch(API_URL, { method: "POST", body: JSON.stringify(requestData) });
+    let data = await res.json();
+    if (data.success) {
+      alert("Order Saved Successfully!");
+      location.reload(); 
+    } else {
+      alert("Error: " + data.error);
+      document.getElementById('btnSave').innerText = "💾 Save / Update Order";
+    }
+  } catch (err) {
+    alert("Failed to connect to database.");
+    document.getElementById('btnSave').innerText = "💾 Save / Update Order";
+  }
 }
 
 function renderCustomerList() {
@@ -522,35 +575,50 @@ function editOrderInPOS(orderId, custId) {
   document.getElementById('discountValue').value = order.Discount || 0;
 
   cart = [];
-  const details = globalData.orderDetails.filter(d => d.OrderID === orderId);
-  let roomsMap = {};
   
-  details.forEach(d => {
-    if (!roomsMap[d.RoomName]) {
-        roomsMap[d.RoomName] = { 
-            roomId: Date.now() + Math.random(), 
-            roomName: d.RoomName, 
-            w: d['Width(m)'], 
-            h: d['Height(m)'], 
-            ukuran: `L:${d['Width(m)']}m x T:${d['Height(m)']}m`,
-            components: [], 
-            rawConfig: {} 
-        };
+  // MAGIC RESTORE: Check if we saved the exact UI memory in the Notes column
+  let restoredCart = null;
+  try {
+    if (order.Notes && order.Notes.includes('roomId')) {
+      restoredCart = JSON.parse(order.Notes);
     }
-    
-    // FIX 1: We group everything simply under one single header per window
-    // FIX 2: We use the raw number straight from the database, NO MORE appending "m" or "pcs"!
-    roomsMap[d.RoomName].components.push({ 
-        layer: "Rincian Item", 
-        itemCode: (d.ItemCode === 'LEGACY') ? '' : d.ItemCode, 
-        itemName: d.ItemName, 
-        qtyDesc: parseFloat(d['Qty/Area']) || d['Qty/Area'], // Keeps it strictly as a number
-        baseCostTotal: parseFloat(d.BaseCostTotal) || 0, 
-        subtotalPrice: parseFloat(d.SubtotalPrice) || 0 
-    });
-  });
+  } catch(e) {
+    console.log("No JSON memory found, falling back to legacy format.");
+  }
 
-  cart = Object.values(roomsMap);
+  if (restoredCart) {
+    // PERFECT RESTORE: Pleats, groupings, and window configurations are 100% back!
+    cart = restoredCart;
+  } else {
+    // LEGACY FALLBACK: For old imported orders without memory
+    const details = globalData.orderDetails.filter(d => d.OrderID === orderId);
+    let roomsMap = {};
+    
+    details.forEach(d => {
+      if (!roomsMap[d.RoomName]) {
+          roomsMap[d.RoomName] = { 
+              roomId: Date.now() + Math.random(), 
+              roomName: d.RoomName, 
+              w: d['Width(m)'], 
+              h: d['Height(m)'], 
+              ukuran: `L:${d['Width(m)']}m x T:${d['Height(m)']}m`,
+              components: [], 
+              rawConfig: {} 
+          };
+      }
+      
+      roomsMap[d.RoomName].components.push({ 
+          layer: "Rincian Item", 
+          itemCode: (d.ItemCode === 'LEGACY') ? '' : d.ItemCode, 
+          itemName: d.ItemName, 
+          qtyDesc: parseFloat(d['Qty/Area']) || d['Qty/Area'], 
+          baseCostTotal: parseFloat(d.BaseCostTotal) || 0, 
+          subtotalPrice: parseFloat(d.SubtotalPrice) || 0 
+      });
+    });
+    cart = Object.values(roomsMap);
+  }
+
   document.getElementById('currentOrderId').value = orderId; 
   document.getElementById('displayOrderId').innerText = orderId; 
   document.getElementById('editAlert').hidden = false;
