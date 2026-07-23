@@ -3,6 +3,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbyKUqD4vfQ1nRVLvxU_CXvK
 
 let globalData = { prices: [], customers: [], orders: [], orderDetails: [], payables: [], settings: [] };
 let cart = []; 
+let cartModified = false;
 let cartTotals = { subTotal: 0, discount: 0, grandTotal: 0, totalModal: 0 };
 let editingWindowId = null; // Tracks which window is currently being edited
 
@@ -317,7 +318,9 @@ function addBOMToCart() {
   }
 
   updateCartUI();
+  
   document.querySelectorAll('input[type="checkbox"][id^="layer"]').forEach(cb => cb.checked = false);
+  cartModified = true;
   toggleLayers();
 }
 
@@ -371,6 +374,7 @@ function editWindow(roomId) {
 // REFRESH OLD ORDERS WITH NEW DATABASE PRICES
 // ==========================================
 function refreshCartPrices() {
+  cartModified = true;
   if (cart.length === 0) return alert("Cart is empty! Nothing to refresh.");
   if (!confirm("Are you sure you want to update all items in this order to the latest Master Prices?")) return;
   
@@ -452,9 +456,11 @@ function updateCartUI() {
   document.getElementById('displayTotal').innerText = formatRupiah(cartTotals.grandTotal);
 }
 
-function removeWindow(index) { cart.splice(index, 1); updateCartUI(); }
+function removeWindow(index) { cart.splice(index, 1); cartModified = true; updateCartUI(); }
 
 function clearCartAndOrder() {
+
+  cartModified = false;
   // Clear order tracking
   document.getElementById('currentOrderId').value = "";
   document.getElementById('displayOrderId').innerText = "";
@@ -513,6 +519,7 @@ async function saveOrder() {
     amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
     status: document.getElementById('orderStatus').value,
     notes: JSON.stringify(cart), 
+    isCartModified: cartModified, // <--- NEW FLAG!
     cartItems: []
   };
 
@@ -749,6 +756,7 @@ function editOrderInPOS(orderId, custId) {
   document.getElementById('editAlert').hidden = false;
   
   updateCartUI(); 
+  cartModified = false;
   switchTab('tab-pos');
 }
 
