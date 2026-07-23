@@ -426,7 +426,22 @@ async function saveOrder() {
   const btn = document.getElementById('btnSave'); btn.innerText = "Saving..."; btn.disabled = true;
 
   let flatCart = [];
-  cart.forEach(w => { w.components.forEach(c => { flatCart.push({...c, room: w.roomName, w: w.w, h: w.h}); }); });
+  cart.forEach(w => {
+      w.components.forEach(c => {
+        detailsPayload.push({
+          DetailID: w.roomId + "-" + Math.random().toString(36).substr(2, 5),
+          OrderID: orderId,
+          RoomName: w.roomName,
+          ItemCode: c.itemCode,
+          ItemName: c.itemName,
+          'Width(m)': w.w,
+          'Height(m)': w.h,
+          'Qty/Area': parseFloat(c.qtyDesc) || 0, // <--- THIS FORCES IT TO SAVE AS A RAW NUMBER ONLY
+          BaseCostTotal: c.baseCostTotal,
+          SubtotalPrice: c.subtotalPrice
+        });
+      });
+    });
 
   const payload = {
     orderId: document.getElementById('currentOrderId').value, customerName: custName, customerWA: document.getElementById('custWA').value,
@@ -523,29 +538,13 @@ function editOrderInPOS(orderId, custId) {
         };
     }
     
-    let layerName = "Komponen";
-    let code = (d.ItemCode || "").toUpperCase();
-    let name = (d.ItemName || "").toLowerCase();
-    
-    // Automatically determine beautiful layer names
-    if(code.startsWith('K-') || name.includes('gorden')) layerName = "Gorden Kain";
-    else if(code.startsWith('V-') || name.includes('vitrase')) layerName = "Vitrase";
-    else if(code.startsWith('RB-') || name.includes('roller')) layerName = "Roller Blind";
-    else if(code.startsWith('ROMAN') || name.includes('roman')) layerName = "Roman Shade";
-    else if(code.startsWith('S-CUCI') || name.includes('cuci')) layerName = "Jasa Cuci";
-    else if(code.startsWith('A-') || name.includes('rel') || name.includes('plong')) layerName = "Aksesoris";
-
-    // Determine the correct unit string
-    let qtyString = d['Qty/Area'];
-    if(name.includes('cuci') || name.includes('roller')) qtyString += ' m2';
-    else if(name.includes('plong') || name.includes('smokering') || name.includes('kancing')) qtyString += ' pcs';
-    else qtyString += ' m';
-
+    // FIX 1: We group everything simply under one single header per window
+    // FIX 2: We use the raw number straight from the database, NO MORE appending "m" or "pcs"!
     roomsMap[d.RoomName].components.push({ 
-        layer: layerName, 
-        itemCode: code === 'LEGACY' ? '' : d.ItemCode, 
+        layer: "Rincian Item", 
+        itemCode: (d.ItemCode === 'LEGACY') ? '' : d.ItemCode, 
         itemName: d.ItemName, 
-        qtyDesc: qtyString, 
+        qtyDesc: parseFloat(d['Qty/Area']) || d['Qty/Area'], // Keeps it strictly as a number
         baseCostTotal: parseFloat(d.BaseCostTotal) || 0, 
         subtotalPrice: parseFloat(d.SubtotalPrice) || 0 
     });
@@ -559,6 +558,7 @@ function editOrderInPOS(orderId, custId) {
   updateCartUI(); 
   switchTab('tab-pos');
 }
+
 async function updateCustomerProfile() {
   const payload = { customerId: document.getElementById('editCustId').value, name: document.getElementById('editCustName').value, phone: document.getElementById('editCustWA').value, address: document.getElementById('editCustAddress').value, tier: document.getElementById('editCustTier').value };
   await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateCustomer", payload: payload }) });
