@@ -427,7 +427,6 @@ async function saveOrder() {
 
   document.getElementById('btnSave').innerText = "⏳ Saving...";
 
-  // Build the EXACT payload that saveOrderAndCustomer expects
   let payloadData = {
     orderId: document.getElementById('currentOrderId').value,
     customerName: custName,
@@ -446,21 +445,32 @@ async function saveOrder() {
 
   cart.forEach(w => {
     w.components.forEach(c => {
+      
+      // NEW FEATURE: Extract Pleat/Model and attach it to the Item Name!
+      let finalItemName = c.itemName;
+      
+      // If the layer has a pleat defined in brackets, e.g. "Gorden Kain (Triple Pinch Pleat)"
+      if (c.layer.includes('(') && c.layer.includes(')')) {
+        let pleatModel = c.layer.substring(c.layer.indexOf('('), c.layer.indexOf(')') + 1);
+        finalItemName = finalItemName + " " + pleatModel;
+      }
+
       payloadData.cartItems.push({
         room: w.roomName,
         itemCode: c.itemCode,
-        itemName: c.itemName,
+        itemName: finalItemName, // Saves as: "Import Blackout (Triple Pinch Pleat)"
         w: w.w,
         h: w.h,
-        qtyDesc: c.qtyDesc, // Sent as "5.5 m", backend splits it
+        qtyDesc: c.qtyDesc, 
         baseCostTotal: c.baseCostTotal,
         subtotalPrice: c.subtotalPrice
       });
     });
   });
 
+  // MUST be 'saveOrder' so it matches the doPost in Code.gs!
   const requestData = {
-    action: 'saveOrder',  // <--- Must match what Code.gs is listening for!
+    action: 'saveOrder', 
     payload: payloadData
   };
 
@@ -472,7 +482,6 @@ async function saveOrder() {
       alert("Order Saved Successfully!");
       location.reload(); 
     } else {
-      // NEW: Show exactly what went wrong instead of "undefined"
       let errorMsg = data.error || data.message || JSON.stringify(data);
       alert(errorMsg);
       document.getElementById('btnSave').innerText = "💾 Save / Update Order";
@@ -607,15 +616,18 @@ function editOrderInPOS(orderId, custId) {
 
   cart = [];
   
-  // MAGIC RESTORE: Check if we saved the exact UI memory in the Notes column
+ // MAGIC RESTORE: Load the exact UI memory from the new System_Memory column
   let restoredCart = null;
   try {
-    if (order.Notes && order.Notes.includes('=== SYSTEM MEMORY (DO NOT EDIT) ===')) {
-      // Read the hidden JSON at the bottom
+    if (order.System_Memory) {
+      // Use the new dedicated JSON column
+      restoredCart = JSON.parse(order.System_Memory);
+    } else if (order.Notes && order.Notes.includes('=== SYSTEM MEMORY (DO NOT EDIT) ===')) {
+      // Fallback for orders saved in the brief window before this update
       let jsonPart = order.Notes.split('=== SYSTEM MEMORY (DO NOT EDIT) ===')[1].trim();
       restoredCart = JSON.parse(jsonPart);
     } else if (order.Notes && order.Notes.includes('roomId')) {
-      // Fallback for orders made before this update
+      // Fallback for older formats
       restoredCart = JSON.parse(order.Notes);
     }
   } catch(e) {
