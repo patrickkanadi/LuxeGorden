@@ -460,7 +460,7 @@ async function saveOrder() {
   });
 
   const requestData = {
-    action: 'saveOrderAndCustomer', 
+    action: 'saveOrder',  // <--- Must match what Code.gs is listening for!
     payload: payloadData
   };
 
