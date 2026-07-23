@@ -100,6 +100,34 @@ function logoutAdmin() {
   switchTab('tab-pos'); // Kick them back to the POS screen
 }
 
+// --- CUSTOMER AUTOCOMPLETE LOGIC ---
+function populateCustomerDatalist() {
+  const dl = document.getElementById('customerDatalist');
+  if (!dl || dl.options.length > 0) return; // Prevent rebuilding every click
+  
+  (globalData.customers || []).forEach(c => {
+    let opt = document.createElement('option');
+    opt.value = c.Name;
+    opt.dataset.wa = c.Phone_WA;
+    opt.dataset.addr = c.Address;
+    opt.dataset.tier = c.Tier;
+    dl.appendChild(opt);
+  });
+}
+
+function autoFillCustomer() {
+  let val = document.getElementById('custName').value;
+  let opts = document.getElementById('customerDatalist').options;
+  for (let i = 0; i < opts.length; i++) {
+    if (opts[i].value === val) {
+      document.getElementById('custWA').value = opts[i].dataset.wa || "";
+      document.getElementById('custAddress').value = opts[i].dataset.addr || "";
+      document.getElementById('custTier').value = opts[i].dataset.tier || "Price_Reguler";
+      break;
+    }
+  }
+}
+
 // ==========================================
 // SETTINGS LOGIC
 // ==========================================
@@ -354,15 +382,40 @@ function updateCartUI() {
 function removeWindow(index) { cart.splice(index, 1); updateCartUI(); }
 
 function clearCartAndOrder() {
-  cart = []; document.getElementById('currentOrderId').value = ""; document.getElementById('editAlert').hidden = true; document.getElementById('discountValue').value = 0;
-  document.getElementById('custName').value = ""; document.getElementById('custWA').value = ""; document.getElementById('custAddress').value = ""; document.getElementById('custTier').value = "Price_Reguler";
-  document.getElementById('roomName').value = ""; document.getElementById('width').value = "1.0"; document.getElementById('height').value = "1.0";
-  document.getElementById('orderStatus').value = "Draft"; document.getElementById('amountPaid').value = "0";
+  // Clear order tracking
+  document.getElementById('currentOrderId').value = "";
+  document.getElementById('displayOrderId').innerText = "";
+  document.getElementById('editAlert').hidden = true;
   
-  // Clear editing state if user cancels
+  // Clear Customer
+  document.getElementById('custName').value = "";
+  document.getElementById('custWA').value = "";
+  document.getElementById('custAddress').value = "";
+  document.getElementById('custTier').value = "Price_Reguler";
+  
+  // Clear Window Builder
+  document.getElementById('roomName').value = "";
+  document.getElementById('width').value = "1.0";
+  document.getElementById('height').value = "1.0";
+  document.querySelectorAll('input[type="checkbox"][id^="layer"]').forEach(cb => cb.checked = false);
+  toggleLayers();
+  
+  // Clear Payment
+  document.getElementById('amountPaid').value = 0;
+  document.getElementById('orderStatus').value = "Draft";
+  document.getElementById('discountValue').value = 0;
+  document.getElementById('discountType').value = "rp";
+  
+  // Clear Cart
+  cart = [];
   editingWindowId = null;
+  
+  // Reset Button
   let btn = document.getElementById('btnAddUpdateWindow');
-  btn.innerText = "+ Add Window to Order"; btn.style.background = "#2980b9";
+  if(btn) {
+    btn.innerText = "+ Add Window to Order";
+    btn.style.background = "#2980b9";
+  }
   
   updateCartUI();
 }
@@ -442,28 +495,70 @@ function loadCustomerProfile(custId) {
 
 function editOrderInPOS(orderId, custId) {
   const customer = globalData.customers.find(c => c.CustomerID === custId);
-  document.getElementById('custName').value = customer.Name; document.getElementById('custWA').value = customer.Phone_WA; document.getElementById('custAddress').value = customer.Address || ""; document.getElementById('custTier').value = customer.Tier;
+  document.getElementById('custName').value = customer.Name; 
+  document.getElementById('custWA').value = customer.Phone_WA; 
+  document.getElementById('custAddress').value = customer.Address || ""; 
+  document.getElementById('custTier').value = customer.Tier || "Price_Reguler";
+  
   const order = globalData.orders.find(o => o.OrderID === orderId);
-  document.getElementById('orderStatus').value = order.Status; document.getElementById('amountPaid').value = order.AmountPaid;
-  document.getElementById('discountType').value = 'rp'; document.getElementById('discountValue').value = order.Discount || 0;
+  document.getElementById('orderStatus').value = order.Status; 
+  document.getElementById('amountPaid').value = order.AmountPaid;
+  document.getElementById('discountType').value = 'rp'; 
+  document.getElementById('discountValue').value = order.Discount || 0;
 
   cart = [];
   const details = globalData.orderDetails.filter(d => d.OrderID === orderId);
   let roomsMap = {};
   
-  // Rebuilding Cart. NOTE: Orders saved BEFORE this update will not have "rawConfig" saved, 
-  // so they cannot be natively edited using the new "Edit Window" button, but they CAN be deleted or appended to!
   details.forEach(d => {
-    if (!roomsMap[d.RoomName]) roomsMap[d.RoomName] = { roomId: Date.now() + Math.random(), roomName: d.RoomName, w: d['Width(m)'], h: d['Height(m)'], ukuran: `L:${d['Width(m)']}m x T:${d['Height(m)']}m`, components: [], rawConfig: {} };
-    roomsMap[d.RoomName].components.push({ layer: "Imported from CRM", itemCode: d.ItemCode, itemName: d.ItemName, qtyDesc: d['Qty/Area'], baseCostTotal: parseFloat(d.BaseCostTotal), subtotalPrice: parseFloat(d.SubtotalPrice) });
+    if (!roomsMap[d.RoomName]) {
+        roomsMap[d.RoomName] = { 
+            roomId: Date.now() + Math.random(), 
+            roomName: d.RoomName, 
+            w: d['Width(m)'], 
+            h: d['Height(m)'], 
+            ukuran: `L:${d['Width(m)']}m x T:${d['Height(m)']}m`,
+            components: [], 
+            rawConfig: {} 
+        };
+    }
+    
+    let layerName = "Komponen";
+    let code = (d.ItemCode || "").toUpperCase();
+    let name = (d.ItemName || "").toLowerCase();
+    
+    // Automatically determine beautiful layer names
+    if(code.startsWith('K-') || name.includes('gorden')) layerName = "Gorden Kain";
+    else if(code.startsWith('V-') || name.includes('vitrase')) layerName = "Vitrase";
+    else if(code.startsWith('RB-') || name.includes('roller')) layerName = "Roller Blind";
+    else if(code.startsWith('ROMAN') || name.includes('roman')) layerName = "Roman Shade";
+    else if(code.startsWith('S-CUCI') || name.includes('cuci')) layerName = "Jasa Cuci";
+    else if(code.startsWith('A-') || name.includes('rel') || name.includes('plong')) layerName = "Aksesoris";
+
+    // Determine the correct unit string
+    let qtyString = d['Qty/Area'];
+    if(name.includes('cuci') || name.includes('roller')) qtyString += ' m2';
+    else if(name.includes('plong') || name.includes('smokering') || name.includes('kancing')) qtyString += ' pcs';
+    else qtyString += ' m';
+
+    roomsMap[d.RoomName].components.push({ 
+        layer: layerName, 
+        itemCode: code === 'LEGACY' ? '' : d.ItemCode, 
+        itemName: d.ItemName, 
+        qtyDesc: qtyString, 
+        baseCostTotal: parseFloat(d.BaseCostTotal) || 0, 
+        subtotalPrice: parseFloat(d.SubtotalPrice) || 0 
+    });
   });
 
   cart = Object.values(roomsMap);
-  document.getElementById('currentOrderId').value = orderId; document.getElementById('displayOrderId').innerText = orderId; document.getElementById('editAlert').hidden = false;
+  document.getElementById('currentOrderId').value = orderId; 
+  document.getElementById('displayOrderId').innerText = orderId; 
+  document.getElementById('editAlert').hidden = false;
   
-  updateCartUI(); switchTab('tab-pos');
+  updateCartUI(); 
+  switchTab('tab-pos');
 }
-
 async function updateCustomerProfile() {
   const payload = { customerId: document.getElementById('editCustId').value, name: document.getElementById('editCustName').value, phone: document.getElementById('editCustWA').value, address: document.getElementById('editCustAddress').value, tier: document.getElementById('editCustTier').value };
   await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateCustomer", payload: payload }) });
