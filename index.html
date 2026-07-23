@@ -247,7 +247,11 @@
             <div class="form-group"><label>Status Pembayaran</label><select id="orderStatus"><option>Draft</option><option>DP</option><option>Lunas</option></select></div>
             <div class="form-group"><label>Nominal Dibayar (Rp)</label><input type="number" id="amountPaid" value="0"></div>
           </div>
-          <button class="btn-save" id="btnSave" onclick="saveOrder()" style="margin-bottom: 15px;">💾 Save / Update Order</button>
+          
+          <div class="grid-2">
+            <button class="btn-save" id="btnSave" onclick="saveOrder()" style="margin-bottom: 15px;">💾 Save / Update Order</button>
+            <button class="btn-update" onclick="refreshCartPrices()" style="margin-bottom: 15px; background: #8e44ad; color: white;">🔄 Refresh to Latest Prices</button>
+          </div>
           
           <div class="grid-2">
             <button class="btn-print-prop" onclick="generateDocument('Proposal')">📄 Print Proposal (Quotation)</button>
