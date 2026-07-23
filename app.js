@@ -540,6 +540,54 @@ function renderCustomerList() {
   });
 }
 
+// ==========================================
+// CRM: VIEW CUSTOMER PROFILE & HISTORY
+// ==========================================
+function viewCustomerProfile(custId) {
+  // 1. Find Customer
+  const customer = globalData.customers.find(c => c.CustomerID === custId);
+  if (!customer) return;
+
+  // 2. Populate Profile Fields
+  document.getElementById('editCustId').value = customer.CustomerID;
+  document.getElementById('editCustName').value = customer.Name;
+  document.getElementById('editCustWA').value = customer.Phone_WA || "";
+  document.getElementById('editCustAddress').value = customer.Address || "";
+  document.getElementById('editCustTier').value = customer.Tier || "Price_Reguler";
+
+  // 3. Find and Render Order History
+  const historyBody = document.getElementById('crmOrderHistory');
+  historyBody.innerHTML = "";
+
+  let custOrders = (globalData.orders || []).filter(o => o.CustomerID === custId);
+  
+  // Sort orders newest first
+  custOrders.sort((a, b) => new Date(b.Date) - new Date(a.Date));
+
+  custOrders.forEach(o => {
+    // Count how many items were in this order
+    let itemCount = (globalData.orderDetails || []).filter(d => d.OrderID === o.OrderID).length;
+    
+    // Status color formatting
+    let statusColor = o.Status === 'Lunas' ? '#27ae60' : (o.Status === 'DP' ? '#f39c12' : '#e74c3c');
+
+    historyBody.innerHTML += `
+      <tr>
+        <td><b>${o.OrderID}</b><br><span style="color:#777; font-size:10px;">${new Date(o.Date).toLocaleDateString()}</span></td>
+        <td>${itemCount} Items</td>
+        <td>${formatRupiah(o.GrandTotal)}</td>
+        <td style="color:${statusColor}; font-weight:bold;">${o.Status}</td>
+        <td>
+          <button onclick="editOrderInPOS('${o.OrderID}', '${custId}')" style="background:#2980b9; color:white; padding:5px; border-radius:3px; cursor:pointer;">Edit/View</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  // 4. Show the Profile Panel
+  document.getElementById('crmProfile').style.display = 'block';
+}
+
 function loadCustomerProfile(custId) {
   const customer = globalData.customers.find(c => c.CustomerID === custId);
   document.getElementById('editCustId').value = customer.CustomerID; 
