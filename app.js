@@ -440,11 +440,10 @@ async function saveOrder() {
     totalModal: cartTotals.totalModal,
     amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
     status: document.getElementById('orderStatus').value,
-    notes: JSON.stringify(cart), // Saves your pleats/checkboxes memory!
+    notes: JSON.stringify(cart), 
     cartItems: []
   };
 
-  // Extract cart items into simple array
   cart.forEach(w => {
     w.components.forEach(c => {
       payloadData.cartItems.push({
@@ -460,7 +459,6 @@ async function saveOrder() {
     });
   });
 
-  // MUST match the function name in Code.gs!
   const requestData = {
     action: 'saveOrderAndCustomer', 
     payload: payloadData
@@ -469,15 +467,18 @@ async function saveOrder() {
   try {
     let res = await fetch(API_URL, { method: "POST", body: JSON.stringify(requestData) });
     let data = await res.json();
+    
     if (data.success) {
       alert("Order Saved Successfully!");
       location.reload(); 
     } else {
-      alert("Error: " + data.error);
+      // NEW: Show exactly what went wrong instead of "undefined"
+      let errorMsg = data.error || data.message || JSON.stringify(data);
+      alert(errorMsg);
       document.getElementById('btnSave').innerText = "💾 Save / Update Order";
     }
   } catch (err) {
-    alert("Failed to connect to database.");
+    alert("Failed to connect to database. " + err.message);
     document.getElementById('btnSave').innerText = "💾 Save / Update Order";
   }
 }
