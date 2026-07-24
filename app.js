@@ -37,13 +37,18 @@ window.onload = async function() {
 };
 
 function switchTab(tabId) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-  document.getElementById(tabId).classList.add('active');
-  
-  // Safely assign active class to the clicked button
-  if (window.event && window.event.currentTarget) {
-    window.event.currentTarget.classList.add('active');
+  // 1. Find every single tab in the system and hide them
+  const allTabs = document.querySelectorAll('.tab-content');
+  allTabs.forEach(tab => {
+    tab.style.display = 'none';
+  });
+
+  // 2. Show only the specific tab you clicked
+  const activeTab = document.getElementById(tabId);
+  if (activeTab) {
+    activeTab.style.display = 'block';
+  } else {
+    console.error("Could not find tab with ID: " + tabId);
   }
 }
 
