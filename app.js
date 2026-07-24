@@ -873,29 +873,46 @@ function renderAnalysis() {
   });
 }
 
-function renderPayables() {
-  const tbody = document.getElementById('payablesBody');
-  tbody.innerHTML = "";
-  let totalHutang = 0;
+function renderPayables() { 
+  const tbody = document.getElementById('payablesBody'); 
+  if (!tbody) return;
+  tbody.innerHTML = ""; 
+  let totalHutang = 0; 
   
-  // ADDED SAFETY FALLBACK: (globalData.payables || [])
+  // Safety fallback for the payables list
   const payablesList = globalData.payables || []; 
   
-  payablesList.forEach(p => {
-    let sisaHutang = p.AmountDue - p.AmountPaid;
-    if (sisaHutang > 0) totalHutang += sisaHutang;
+  payablesList.forEach(p => { 
+    // NEW LOGIC: If the status is 'Paid' or 'Lunas', do not show it in the list!
+    if (p.Status === 'Paid' || p.Status === 'Lunas') return;
+
+    let sisaHutang = p.AmountDue - (p.AmountPaid || 0); 
+    if (sisaHutang > 0) totalHutang += sisaHutang; 
     
-    tbody.innerHTML += `<tr>
-      <td>${p.PayableID}</td><td>${new Date(p.Date).toLocaleDateString()}</td>
-      <td>${p.SupplierName}</td><td>${p.OrderID}</td>
-      <td>${formatRupiah(p.AmountDue)}</td>
-      <td><input type="number" id="pay_${p.PayableID}" value="${p.AmountPaid}" style="width:100px;"></td>
-      <td><select id="stat_${p.PayableID}"><option value="Unpaid" ${p.Status==='Unpaid'?'selected':''}>Unpaid</option><option value="Paid" ${p.Status==='Paid'?'selected':''}>Paid</option></select></td>
-      <td><button onclick="savePayable('${p.PayableID}')" style="background:#27ae60; padding:5px;">Update</button></td>
-    </tr>`;
-  });
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.PayableID}</td>
+        <td>${new Date(p.Date).toLocaleDateString()}</td>
+        <td>${p.SupplierName}</td>
+        <td>${p.OrderID}</td>
+        <td>${formatRupiah(p.AmountDue)}</td>
+        <td><input type="number" id="pay_${p.PayableID}" value="${p.AmountPaid || 0}" style="width:100px;"></td>
+        <td>
+          <select id="stat_${p.PayableID}">
+            <option value="Unpaid" ${p.Status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+            <option value="Paid" ${p.Status === 'Paid' ? 'selected' : ''}>Paid</option>
+          </select>
+        </td>
+        <td><button onclick="savePayable('${p.PayableID}')">Update</button></td>
+      </tr>
+    `; 
+  }); 
   
-  document.getElementById('totalHutang').innerText = formatRupiah(totalHutang);
+  // Update the Total Hutang summary at the bottom
+  const totalHutangElement = document.getElementById('totalHutang');
+  if (totalHutangElement) {
+      totalHutangElement.innerText = formatRupiah(totalHutang); 
+  }
 }
 
 async function savePayable(payableId) {
