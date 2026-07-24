@@ -59,31 +59,32 @@ function toggleLayers() {
 
 function promptAdminAccess() {
   const pin = prompt("Enter Master PIN:");
-  if (pin === null || pin === "") return; // Stop if user clicks Cancel
-  
+  if (pin === null || pin === "") return;
+
   const pinSetting = globalData.settings && globalData.settings.find(s => s.Key === 'Master_PIN');
   const masterPin = pinSetting ? pinSetting.Value.toString() : "8888";
-
-  if (pin === masterPin) { 
-    // Swap Navbar Buttons
+  
+  if (pin === masterPin) {
     document.getElementById('btnAdmin').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'block';
     
-    // Safely add dynamic buttons
     if(!document.getElementById('btnAnalysisTab')) {
       document.querySelector('.navbar').insertAdjacentHTML('beforeend', 
-        `<button id="btnAnalysisTab" class="tab-link" onclick="renderAnalysis(); switchTab('tab-analysis')">📊 Analysis</button>
-         <button id="btnPayablesTab" class="tab-link" onclick="renderPayables(); switchTab('tab-payables')">💸 Payables</button>
-         <button id="btnSettingsTab" class="tab-link" onclick="renderSettings(); switchTab('tab-settings')">⚙️ Settings</button>`
+        `<button class="tab-link" id="btnAnalysisTab" style="display:none;" onclick="switchTab('tab-analysis')">📊 Analysis</button>
+         <button class="tab-link" id="btnPayablesTab" style="display:none;" onclick="switchTab('tab-payables')">💸 Payables</button>
+         <button class="tab-link" id="btnProductionTab" style="display:none;" onclick="switchTab('tab-production')">🏭 Production</button>
+         <button class="tab-link" id="btnSettingsTab" style="display:none;" onclick="switchTab('tab-settings')">⚙️ Settings</button>`
       );
     } else {
       document.getElementById('btnAnalysisTab').style.display = 'inline-block';
       document.getElementById('btnPayablesTab').style.display = 'inline-block';
+      document.getElementById('btnProductionTab').style.display = 'inline-block';
       document.getElementById('btnSettingsTab').style.display = 'inline-block';
     }
     
     renderAnalysis();
     renderPayables();
+    renderProduction(); // Render the new tab
     switchTab('tab-analysis');
   } else {
     alert("Incorrect PIN.");
@@ -97,8 +98,10 @@ function logoutAdmin() {
   if(document.getElementById('btnAnalysisTab')) {
     document.getElementById('btnAnalysisTab').style.display = 'none';
     document.getElementById('btnPayablesTab').style.display = 'none';
+    document.getElementById('btnProductionTab').style.display = 'none';
+    document.getElementById('btnSettingsTab').style.display = 'none';
   }
-  switchTab('tab-pos'); // Kick them back to the POS screen
+  switchTab('tab-pos'); 
 }
 
 // --- CUSTOMER AUTOCOMPLETE LOGIC ---
@@ -127,6 +130,56 @@ function autoFillCustomer() {
       break;
     }
   }
+}
+
+// ==========================================
+// PRODUCTION TAB LOGIC
+// ==========================================
+function renderProduction() {
+  const tbody = document.getElementById('productionBody');
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const payablesList = globalData.payables || [];
+  
+  payablesList.forEach(p => {
+    // Default to "Pending" if you haven't set a status yet
+    let prodStat = p.Production_Status || 'Pending';
+    
+    // THE MAGIC RULE: If it is Done, immediately skip it so it vanishes from the list!
+    if (prodStat === 'Done') return;
+    
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.PayableID}</td>
+        <td>${new Date(p.Date).toLocaleDateString()}</td>
+        <td>${p.OrderID}</td>
+        <td><strong>${p.SupplierName}</strong></td>
+        <td>
+          <select id="prodStat_${p.PayableID}">
+            <option value="Pending" ${prodStat === 'Pending' ? 'selected' : ''}>Pending (Not Told)</option>
+            <option value="Told to Supplier" ${prodStat === 'Told to Supplier' ? 'selected' : ''}>Told to Supplier</option>
+            <option value="Done" ${prodStat === 'Done' ? 'selected' : ''}>Done</option>
+          </select>
+        </td>
+        <td>
+          <button onclick="saveProductionStatus('${p.PayableID}')" style="background:#2980b9; color:white; padding:5px 15px; border:none; border-radius:3px; cursor:pointer;">Save</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+async function saveProductionStatus(payableId) {
+  const stat = document.getElementById(`prodStat_${payableId}`).value;
+  const payload = {
+    payableId: payableId,
+    prodStatus: stat
+  };
+  
+  await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updateProdStatus", payload: payload }) });
+  alert("Supplier Production Status Updated!");
+  location.reload();
 }
 
 // ==========================================
