@@ -1008,6 +1008,53 @@ async function savePayable(payableId) {
 }
 
 // ==========================================
+// SYNC / REFRESH DATA
+// ==========================================
+async function syncApp() {
+  const syncBtn = document.getElementById('btnSync');
+  const originalText = syncBtn.innerHTML;
+  
+  // Show loading state
+  syncBtn.innerHTML = "⏳ Syncing...";
+  syncBtn.style.opacity = "0.7";
+  syncBtn.disabled = true;
+
+  try {
+    // Fetch fresh data from the backend
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "getData" })
+    });
+    
+    const freshData = await response.json();
+    globalData = freshData; // Update your local database
+    
+    // Re-render all active tables to show the fresh data instantly
+    if (typeof renderPayables === "function") renderPayables();
+    if (typeof renderProduction === "function") renderProduction();
+    // Add renderHistory() here if you have a history tab!
+    
+    // Success feedback
+    syncBtn.innerHTML = "✅ Synced!";
+    setTimeout(() => {
+      syncBtn.innerHTML = originalText;
+      syncBtn.style.opacity = "1";
+      syncBtn.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Sync failed:", error);
+    syncBtn.innerHTML = "❌ Failed";
+    alert("Check your internet connection and try again.");
+    setTimeout(() => {
+      syncBtn.innerHTML = originalText;
+      syncBtn.style.opacity = "1";
+      syncBtn.disabled = false;
+    }, 2000);
+  }
+}
+
+// ==========================================
 // PRINTING ENGINE (A4 FIT & RICH DETAILS)
 // ==========================================
 function generateDocument(docType) {
