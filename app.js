@@ -65,15 +65,17 @@ function promptAdminAccess() {
   const masterPin = pinSetting ? pinSetting.Value.toString() : "8888";
   
   if (pin === masterPin) {
+    // Swap Navbar Buttons
     document.getElementById('btnAdmin').style.display = 'none';
     document.getElementById('btnLogout').style.display = 'block';
     
+    // Safely add dynamic buttons, now visible by default!
     if(!document.getElementById('btnAnalysisTab')) {
       document.querySelector('.navbar').insertAdjacentHTML('beforeend', 
-        `<button class="tab-link" id="btnAnalysisTab" style="display:none;" onclick="switchTab('tab-analysis')">📊 Analysis</button>
-         <button class="tab-link" id="btnPayablesTab" style="display:none;" onclick="switchTab('tab-payables')">💸 Payables</button>
-         <button class="tab-link" id="btnProductionTab" style="display:none;" onclick="switchTab('tab-production')">🏭 Production</button>
-         <button class="tab-link" id="btnSettingsTab" style="display:none;" onclick="switchTab('tab-settings')">⚙️ Settings</button>`
+        `<button class="tab-link" id="btnAnalysisTab" style="display:inline-block;" onclick="switchTab('tab-analysis')">📊 Analysis</button>
+         <button class="tab-link" id="btnPayablesTab" style="display:inline-block;" onclick="switchTab('tab-payables')">💸 Payables</button>
+         <button class="tab-link" id="btnProductionTab" style="display:inline-block;" onclick="switchTab('tab-production')">🏭 Production</button>
+         <button class="tab-link" id="btnSettingsTab" style="display:inline-block;" onclick="switchTab('tab-settings')">⚙️ Settings</button>`
       );
     } else {
       document.getElementById('btnAnalysisTab').style.display = 'inline-block';
@@ -84,7 +86,8 @@ function promptAdminAccess() {
     
     renderAnalysis();
     renderPayables();
-    renderProduction(); // Render the new tab
+    renderProduction();
+    
     switchTab('tab-analysis');
   } else {
     alert("Incorrect PIN.");
@@ -142,12 +145,19 @@ function renderProduction() {
 
   const payablesList = globalData.payables || [];
   
-  payablesList.forEach(p => {
-    // Default to "Pending" if you haven't set a status yet
+  // Filter out the jobs that are already marked "Done"
+  const activeJobs = payablesList.filter(p => (p.Production_Status || 'Pending') !== 'Done');
+
+  // If there are no jobs, show a helpful message instead of a blank screen
+  if (activeJobs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #7f8c8d;">
+      <em>No active production jobs found. Once you save an order as "DP" or "Lunas", jobs will automatically appear here!</em>
+    </td></tr>`;
+    return;
+  }
+  
+  activeJobs.forEach(p => {
     let prodStat = p.Production_Status || 'Pending';
-    
-    // THE MAGIC RULE: If it is Done, immediately skip it so it vanishes from the list!
-    if (prodStat === 'Done') return;
     
     tbody.innerHTML += `
       <tr>
