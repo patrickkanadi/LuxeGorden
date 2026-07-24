@@ -90,7 +90,9 @@
     <button class="tab-link active" onclick="switchTab('tab-pos')">1. Order & POS</button>
     <button class="tab-link" onclick="switchTab('tab-crm')">2. CRM & History</button>
     <button class="tab-link" onclick="renderPiutang(); switchTab('tab-piutang')">3. Piutang (A/R)</button>
-    
+    <button class="tab-link" id="btnSync" onclick="syncApp()" style="background:#e67e22; color:white; margin-left: 10px;">
+    🔄 Sync Data
+  </button>
     <button class="tab-link" id="btnAdmin" onclick="promptAdminAccess()" style="color:#e74c3c; margin-left:auto;">🔒 Admin Area</button>
     <button class="tab-link" id="btnLogout" onclick="logoutAdmin()" style="display:none; color:#e74c3c; margin-left:auto;">🔓 Logout Admin</button>
   </div>
