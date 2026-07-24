@@ -1055,6 +1055,30 @@ async function syncApp() {
 }
 
 // ==========================================
+// RECORD PRINT ACTIONS
+// ==========================================
+function recordPrint(orderId, type) {
+  // type should be exactly 'quotation' or 'invoice'
+  console.log(`Recording print for ${orderId} as ${type}...`);
+  
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "logPrint",
+      payload: {
+        orderId: orderId,
+        printType: type
+      }
+    })
+  }).then(res => res.json())
+    .then(data => {
+      if(data.success) {
+        console.log(`Successfully logged ${type} printed on ${data.date}`);
+      }
+    }).catch(err => console.error("Failed to log print status", err));
+}
+
+// ==========================================
 // PRINTING ENGINE (A4 FIT & RICH DETAILS)
 // ==========================================
 function generateDocument(docType) {
