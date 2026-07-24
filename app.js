@@ -1203,6 +1203,17 @@ function generateDocument(docType) {
       </div>`;
   }
 
+  // 👇👇👇 ADD THIS TRACKING BLOCK 👇👇👇
+  const savedOrderId = document.getElementById('currentOrderId').value;
+  if (savedOrderId) {
+    if (docType === 'Proposal') {
+      recordPrint(savedOrderId, 'quotation');
+    } else {
+      recordPrint(savedOrderId, 'invoice');
+    }
+  }
+  // 👆👆👆 END OF TRACKING BLOCK 👆👆👆
+
   // 6. Buka Dialog Print
   window.print();
 }
