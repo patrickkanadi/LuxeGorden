@@ -79,12 +79,15 @@ function promptAdminAccess() {
       document.querySelector('.navbar').insertAdjacentHTML('beforeend', 
         `<button class="tab-link" id="btnAnalysisTab" style="display:inline-block;" onclick="switchTab('tab-analysis')">📊 Analysis</button>
          <button class="tab-link" id="btnPayablesTab" style="display:inline-block;" onclick="switchTab('tab-payables')">💸 Payables</button>
+         <button class="tab-link" id="btnJournalTab" style="display:inline-block;" onclick="switchTab('tab-journal'); renderJournal();">📘 Cash Book</button>
          <button class="tab-link" id="btnProductionTab" style="display:inline-block;" onclick="switchTab('tab-production')">🏭 Production</button>
          <button class="tab-link" id="btnSettingsTab" style="display:inline-block;" onclick="switchTab('tab-settings')">⚙️ Settings</button>`
       );
     } else {
+      // Show existing buttons including the new one
       document.getElementById('btnAnalysisTab').style.display = 'inline-block';
       document.getElementById('btnPayablesTab').style.display = 'inline-block';
+      document.getElementById('btnJournalTab').style.display = 'inline-block';
       document.getElementById('btnProductionTab').style.display = 'inline-block';
       document.getElementById('btnSettingsTab').style.display = 'inline-block';
     }
@@ -92,6 +95,7 @@ function promptAdminAccess() {
     renderAnalysis();
     renderPayables();
     renderProduction();
+    renderJournal(); // <--- Add this!
     
     switchTab('tab-analysis');
   } else {
@@ -590,8 +594,19 @@ async function saveOrder() {
       cartWasModified = false;
   }
 
+  // 👇 NEW LOGIC: Calculate exactly how much cash came in
+  let oldAmountPaid = 0;
+  const currentOrderId = document.getElementById('currentOrderId').value;
+  if (currentOrderId) {
+    let existingOrder = (globalData.orders || []).find(o => o.OrderID === currentOrderId);
+    if (existingOrder) oldAmountPaid = parseFloat(existingOrder.AmountPaid) || 0;
+  }
+  const newAmountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+  const paymentDiff = newAmountPaid - oldAmountPaid;
+  // 👆 END NEW LOGIC
+
   let payloadData = {
-    orderId: document.getElementById('currentOrderId').value,
+    orderId: currentOrderId,
     customerName: custName,
     customerWA: document.getElementById('custWA').value,
     customerAddress: document.getElementById('custAddress').value,
@@ -600,10 +615,11 @@ async function saveOrder() {
     discount: cartTotals.discount,
     grandTotal: cartTotals.grandTotal,
     totalModal: cartTotals.totalModal,
-    amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
+    amountPaid: newAmountPaid,
     status: document.getElementById('orderStatus').value,
     notes: currentCartJSON, 
-    isCartModified: cartWasModified, // <--- Sends the Auto-Detect result to backend!
+    isCartModified: cartWasModified, 
+    paymentDiff: paymentDiff, // <--- Sends the exact cash flow to backend!
     cartItems: []
   };
 
@@ -848,6 +864,41 @@ async function deleteOrderPermanently(orderId) {
   } catch(e) { alert("Error!"); }
 }
 
+async function renderJournal() {
+  const tbody = document.getElementById('journalBody');
+  if (!tbody) return;
+  tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;'>⏳ Loading Cash Book Data...</td></tr>";
+  
+  try {
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "getJournal" }) });
+    const json = await res.json();
+    
+    tbody.innerHTML = "";
+    if (json.data && json.data.length > 0) {
+      json.data.forEach(row => {
+         let inAmt = row.Cash_In ? `<span style="color:#27ae60; font-weight:bold;">+ ${formatRupiah(row.Cash_In)}</span>` : "-";
+         let outAmt = row.Cash_Out ? `<span style="color:#e74c3c; font-weight:bold;">- ${formatRupiah(row.Cash_Out)}</span>` : "-";
+         
+         tbody.innerHTML += `
+           <tr>
+             <td style="font-size:12px; color:#555;">${row.Date}</td>
+             <td><span style="background:#f1f2f6; padding:2px 5px; border-radius:3px;">${row.Ref_ID}</span></td>
+             <td><strong>${row.Entity}</strong></td>
+             <td style="font-size:13px;">${row.Description}</td>
+             <td>${inAmt}</td>
+             <td>${outAmt}</td>
+             <td style="background:#f9f9f9;"><strong>${formatRupiah(row.Balance)}</strong></td>
+           </tr>
+         `;
+      });
+    } else {
+      tbody.innerHTML = "<tr><td colspan='7' style='text-align:center;'>No journal entries recorded yet.</td></tr>";
+    }
+  } catch (err) {
+    tbody.innerHTML = "<tr><td colspan='7' style='color:red; text-align:center;'>Failed to load Journal. Check connection.</td></tr>";
+  }
+}
+
 // ==========================================
 // PIUTANG, ANALYSIS & PAYABLES LOGIC
 // ==========================================
@@ -998,13 +1049,24 @@ function renderPayables() {
 }
 
 async function savePayable(payableId) {
+  // Calculate exactly how much money just moved out
+  const existing = globalData.payables.find(p => p.PayableID === payableId);
+  const oldPaid = existing ? (parseFloat(existing.AmountPaid) || 0) : 0;
+  const newPaid = parseFloat(document.getElementById(`pay_${payableId}`).value) || 0;
+  const paymentDiff = newPaid - oldPaid;
+
   const payload = {
     payableId: payableId,
-    amountPaid: document.getElementById(`pay_${payableId}`).value,
-    status: document.getElementById(`stat_${payableId}`).value
+    amountPaid: newPaid,
+    status: document.getElementById(`stat_${payableId}`).value,
+    paymentDiff: paymentDiff, 
+    supplierName: existing ? existing.SupplierName : 'Unknown',
+    orderId: existing ? existing.OrderID : ''
   };
+  
   await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "updatePayable", payload: payload }) });
-  alert("Payable Updated!"); location.reload();
+  alert("Payable Updated & Logged in Journal!"); 
+  location.reload();
 }
 
 // ==========================================
