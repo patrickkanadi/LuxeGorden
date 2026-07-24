@@ -1082,19 +1082,18 @@ async function syncApp() {
   syncBtn.disabled = true;
 
   try {
-    // Fetch fresh data from the backend
-    const response = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "getData" })
-    });
+    // FIX: Use the exact same GET request that a Hard Refresh uses!
+    const response = await fetch(`${API_URL}?action=getAll`);
     
     const freshData = await response.json();
-    globalData = freshData; // Update your local database
+    globalData = freshData; // Update your local database safely
     
-    // Re-render all active tables to show the fresh data instantly
+    // Force ALL admin tabs to re-render immediately so they don't go blank
+    if (typeof renderAnalysis === "function") renderAnalysis();
     if (typeof renderPayables === "function") renderPayables();
     if (typeof renderProduction === "function") renderProduction();
-    // Add renderHistory() here if you have a history tab!
+    if (typeof renderPiutang === "function") renderPiutang();
+    if (typeof renderJournal === "function") renderJournal();
     
     // Success feedback
     syncBtn.innerHTML = "✅ Synced!";
