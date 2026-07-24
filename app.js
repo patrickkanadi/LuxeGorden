@@ -139,23 +139,36 @@ function autoFillCustomer() {
 // PRODUCTION TAB LOGIC
 // ==========================================
 function renderProduction() {
-  const tbody = document.getElementById('productionBody');
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  const payablesList = globalData.payables || [];
+  console.log("--- Starting renderProduction ---");
   
-  // Filter out the jobs that are already marked "Done"
-  const activeJobs = payablesList.filter(p => (p.Production_Status || 'Pending') !== 'Done');
+  const tbody = document.getElementById('productionBody');
+  
+  // 1. Check if the HTML actually exists
+  if (!tbody) {
+    console.error("CRITICAL ERROR: Could not find 'productionBody' in your HTML.");
+    alert("System Error: Cannot find the Production table in your index.html. Did it get accidentally deleted?");
+    return;
+  }
 
-  // If there are no jobs, show a helpful message instead of a blank screen
+  tbody.innerHTML = "";
+  
+  // 2. Check if the system has loaded the payables data
+  const payablesList = globalData.payables || [];
+  console.log("Total Payables in database: ", payablesList.length);
+
+  // 3. Filter out the jobs that are already marked "Done"
+  const activeJobs = payablesList.filter(p => (p.Production_Status || 'Pending') !== 'Done');
+  console.log("Active Production Jobs to show: ", activeJobs.length);
+
+  // 4. Show the fallback message if empty
   if (activeJobs.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #7f8c8d;">
-      <em>No active production jobs found. Once you save an order as "DP" or "Lunas", jobs will automatically appear here!</em>
+      <em>No active production jobs found. Make sure you have unpaid/active payables!</em>
     </td></tr>`;
     return;
   }
   
+  // 5. Render the table
   activeJobs.forEach(p => {
     let prodStat = p.Production_Status || 'Pending';
     
@@ -178,6 +191,7 @@ function renderProduction() {
       </tr>
     `;
   });
+  console.log("--- Finished renderProduction successfully ---");
 }
 
 async function saveProductionStatus(payableId) {
