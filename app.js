@@ -84,7 +84,6 @@ function promptAdminAccess() {
          <button class="tab-link" id="btnSettingsTab" style="display:inline-block;" onclick="switchTab('tab-settings')">⚙️ Settings</button>`
       );
     } else {
-      // Show existing buttons including the new one
       document.getElementById('btnAnalysisTab').style.display = 'inline-block';
       document.getElementById('btnPayablesTab').style.display = 'inline-block';
       document.getElementById('btnJournalTab').style.display = 'inline-block';
@@ -95,9 +94,15 @@ function promptAdminAccess() {
     renderAnalysis();
     renderPayables();
     renderProduction();
-    renderJournal(); // <--- Add this!
+    if (typeof renderJournal === 'function') renderJournal();
     
     switchTab('tab-analysis');
+    
+    // 👇 NEW FEATURE: Automatically fetch fresh data from Google Sheets upon entering Admin Area!
+    if (typeof syncApp === 'function') {
+        syncApp();
+    }
+    
   } else {
     alert("Incorrect PIN.");
   }
@@ -110,6 +115,7 @@ function logoutAdmin() {
   if(document.getElementById('btnAnalysisTab')) {
     document.getElementById('btnAnalysisTab').style.display = 'none';
     document.getElementById('btnPayablesTab').style.display = 'none';
+    document.getElementById('btnJournalTab').style.display = 'none'; // <--- THIS FIXES THE BUG
     document.getElementById('btnProductionTab').style.display = 'none';
     document.getElementById('btnSettingsTab').style.display = 'none';
   }
