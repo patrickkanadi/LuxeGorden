@@ -590,6 +590,7 @@ async function saveOrder() {
   if (cart.length === 0) return alert("Cart is empty!");
 
   document.getElementById('btnSave').innerText = "⏳ Saving...";
+  document.getElementById('btnSave').disabled = true; // <-- ADD THIS LINE
 
   // SMART AUTO-DETECT: Did the cart items actually change?
   let currentCartJSON = JSON.stringify(cart);
@@ -658,10 +659,12 @@ async function saveOrder() {
       let errorMsg = data.error || data.message || JSON.stringify(data);
       alert(errorMsg);
       document.getElementById('btnSave').innerText = "💾 Save / Update Order";
+      document.getElementById('btnSave').disabled = false; // <-- ADD THIS LINE
     }
   } catch (err) {
     alert("Failed to connect to database. " + err.message);
     document.getElementById('btnSave').innerText = "💾 Save / Update Order";
+    document.getElementById('btnSave').disabled = false; // <-- ADD THIS LINE
   }
 }
 
@@ -1042,7 +1045,7 @@ function renderPayables() {
             <option value="Paid" ${p.Status === 'Paid' ? 'selected' : ''}>Paid</option>
           </select>
         </td>
-        <td><button onclick="savePayable('${p.PayableID}')">Update</button></td>
+        <td><button id="btnPay_${p.PayableID}" onclick="savePayable('${p.PayableID}')">Update</button></td>
       </tr>
     `; 
   }); 
@@ -1055,6 +1058,10 @@ function renderPayables() {
 }
 
 async function savePayable(payableId) {
+  // Disable button to prevent double-clicks
+  const btn = document.getElementById(`btnPay_${payableId}`);
+  if(btn) { btn.disabled = true; btn.innerText = "⏳..."; }
+
   // Calculate exactly how much money just moved out
   const existing = globalData.payables.find(p => p.PayableID === payableId);
   const oldPaid = existing ? (parseFloat(existing.AmountPaid) || 0) : 0;
